@@ -1,4 +1,4 @@
-publications
-============
+iSEC Publications
+=================
 
-iSEC Partners' research publications
+iSEC Partners' research publications.
