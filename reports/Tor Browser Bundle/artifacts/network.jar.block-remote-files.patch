@@ -1,0 +1,45 @@
+From 1fc4163cfae73f7de62c644718204f644c11db41 Mon Sep 17 00:00:00 2001
+From: Jeff Gibat <jgibat@isecpartners.com>
+Date: Wed, 21 May 2014 20:23:32 +0000
+Subject: [PATCH] adding a config preference that allows a user to block all
+ remote jar files regardless of content type
+
+---
+ modules/libjar/nsJARChannel.cpp |    6 ++++++
+ modules/libpref/src/init/all.js |    3 +++
+ 2 files changed, 9 insertions(+)
+
+diff --git a/modules/libjar/nsJARChannel.cpp b/modules/libjar/nsJARChannel.cpp
+index 22b483a..47a212e 100644
+--- a/modules/libjar/nsJARChannel.cpp
++++ b/modules/libjar/nsJARChannel.cpp
+@@ -902,6 +902,12 @@ nsJARChannel::OnDownloadComplete(nsIDownloader *downloader,
+         mContentDisposition = NS_GetContentDispositionFromHeader(mContentDispositionHeader, this);
+     }
+ 
++    // here we check preferences to see if all remote jar support should be disabled
++    if (Preferences::GetBool("network.jar.block-remote-files", true)) {
++        mIsUnsafe = true;
++        status = NS_ERROR_UNSAFE_CONTENT_TYPE;
++    }
++
+     if (NS_SUCCEEDED(status) && mIsUnsafe &&
+         !Preferences::GetBool("network.jar.open-unsafe-types", false)) {
+         status = NS_ERROR_UNSAFE_CONTENT_TYPE;
+diff --git a/modules/libpref/src/init/all.js b/modules/libpref/src/init/all.js
+index 0a2588d..3623e38 100644
+--- a/modules/libpref/src/init/all.js
++++ b/modules/libpref/src/init/all.js
+@@ -1107,6 +1107,9 @@ pref("dom.server-events.default-reconnection-time", 5000); // in milliseconds
+ // by the jar channel.
+ pref("network.jar.open-unsafe-types", false);
+ 
++// If true, remote JAR files will not be opened, regardless of content type
++pref("network.jar.block-remote-files", true);
++
+ // This preference, if true, causes all UTF-8 domain names to be normalized to
+ // punycode.  The intention is to allow UTF-8 domain names as input, but never
+ // generate them from punycode.
+-- 
+1.7.9.5
+

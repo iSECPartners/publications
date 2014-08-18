@@ -1,0 +1,10 @@
+--- /usr/include/assert-orig.h	2014-05-05 22:17:11.711269515 +0000
++++ /usr/include/assert.h	2014-05-05 22:08:43.683270829 +0000
+@@ -47,7 +47,7 @@
+    If NDEBUG is defined, do nothing.
+    If not, and EXPRESSION is zero, print an error message and abort.  */
+
+-#ifdef	NDEBUG
++#ifdef	TOR_NASSERT /* NDEBUG */
+
+ # define assert(expr)		(__ASSERT_VOID_CAST (0))
