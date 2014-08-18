@@ -1,0 +1,38 @@
+diff --git a/db/sqlite3/src/sqlite3.c b/db/sqlite3/src/sqlite3.c
+index deef460..c633695 100644
+--- a/db/sqlite3/src/sqlite3.c
++++ b/db/sqlite3/src/sqlite3.c
+@@ -8083,7 +8083,7 @@ SQLITE_PRIVATE void sqlite3HashClear(Hash*);
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
+-#include <assert.h>
++#include <assert-orig.h>
+ #include <stddef.h>
+ 
+ /*
+diff --git a/media/libnestegg/src/halloc.c b/media/libnestegg/src/halloc.c
+index 5758fc0..5382c56 100644
+--- a/media/libnestegg/src/halloc.c
++++ b/media/libnestegg/src/halloc.c
+@@ -24,7 +24,7 @@
+  */
+ typedef struct hblock
+ {
+-#ifndef NDEBUG
++#ifndef TOR_NASSERT
+ #define HH_MAGIC    0x20040518L
+ 	long          magic;
+ #endif
+diff --git a/toolkit/crashreporter/google-breakpad/src/common/dwarf/dwarf2reader.cc b/toolkit/crashreporter/google-breakpad/src/common/dwarf/dwarf2reader.cc
+index 7d0b8af..4076ea8 100644
+--- a/toolkit/crashreporter/google-breakpad/src/common/dwarf/dwarf2reader.cc
++++ b/toolkit/crashreporter/google-breakpad/src/common/dwarf/dwarf2reader.cc
+@@ -86,7 +86,7 @@ void CompilationUnit::ReadAbbrevs() {
+   const char* abbrev_start = iter->second.first +
+                                       header_.abbrev_offset;
+   const char* abbrevptr = abbrev_start;
+-#ifndef NDEBUG
++#ifndef TOR_NASSERT
+   const uint64 abbrev_length = iter->second.second - header_.abbrev_offset;
+ #endif

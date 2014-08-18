@@ -1,0 +1,4184 @@
+diff --git a/js/public/HashTable.h b/js/public/HashTable.h
+index b9b7ef8..e44b5362 100644
+--- a/js/public/HashTable.h
++++ b/js/public/HashTable.h
+@@ -10,7 +10,7 @@
+ #include "mozilla/Assertions.h"
+ #include "mozilla/Attributes.h"
+ #include "mozilla/Casting.h"
+-#include "mozilla/DebugOnly.h"
++#include "mozilla/DebugOnlyTor.h"
+ #include "mozilla/PodOperations.h"
+ #include "mozilla/TypeTraits.h"
+ #include "mozilla/Util.h"
+@@ -717,7 +717,7 @@ class HashTable : private AllocPolicy
+     {
+         friend class HashTable;
+         HashNumber keyHash;
+-        mozilla::DebugOnly<uint64_t> mutationCount;
++        mozilla::DebugOnlyTor<uint64_t> mutationCount;
+ 
+         AddPtr(Entry &entry, HashNumber hn) : Ptr(entry), keyHash(hn) {}
+       public:
+@@ -740,7 +740,7 @@ class HashTable : private AllocPolicy
+         }
+ 
+         Entry *cur, *end;
+-        mozilla::DebugOnly<bool> validEntry;
++        mozilla::DebugOnlyTor<bool> validEntry;
+ 
+       public:
+         Range() : cur(NULL), end(NULL), validEntry(false) {}
+@@ -877,8 +877,8 @@ class HashTable : private AllocPolicy
+ #endif
+ 
+     friend class js::ReentrancyGuard;
+-    mutable mozilla::DebugOnly<bool> entered;
+-    mozilla::DebugOnly<uint64_t>     mutationCount;
++    mutable mozilla::DebugOnlyTor<bool> entered;
++    mozilla::DebugOnlyTor<uint64_t>     mutationCount;
+ 
+     // The default initial capacity is 32 (enough to hold 16 elements), but it
+     // can be as low as 4.
+diff --git a/js/public/Utility.h b/js/public/Utility.h
+index 7582673..ba997fb 100644
+--- a/js/public/Utility.h
++++ b/js/public/Utility.h
+@@ -7,7 +7,7 @@
+ #ifndef js_Utility_h
+ #define js_Utility_h
+ 
+-#include "mozilla/Assertions.h"
++#include "mozilla/AssertionsTor.h"
+ #include "mozilla/Attributes.h"
+ #include "mozilla/Compiler.h"
+ #include "mozilla/Scoped.h"
+@@ -39,11 +39,11 @@ namespace js {}
+  */
+ #define JS_FREE_PATTERN 0xDA
+ 
+-#define JS_ASSERT(expr)           MOZ_ASSERT(expr)
+-#define JS_ASSERT_IF(cond, expr)  MOZ_ASSERT_IF(cond, expr)
+-#define JS_NOT_REACHED(reason)    MOZ_NOT_REACHED(reason)
+-#define JS_ALWAYS_TRUE(expr)      MOZ_ALWAYS_TRUE(expr)
+-#define JS_ALWAYS_FALSE(expr)     MOZ_ALWAYS_FALSE(expr)
++#define JS_ASSERT(expr)           TBB_MOZ_ASSERT(expr)
++#define JS_ASSERT_IF(cond, expr)  TBB_MOZ_ASSERT_IF(cond, expr)
++#define JS_NOT_REACHED(reason)    TBB_MOZ_NOT_REACHED(reason)
++#define JS_ALWAYS_TRUE(expr)      TBB_MOZ_ALWAYS_TRUE(expr)
++#define JS_ALWAYS_FALSE(expr)     TBB_MOZ_ALWAYS_FALSE(expr)
+ 
+ #ifdef DEBUG
+ # ifdef JS_THREADSAFE
+@@ -56,15 +56,15 @@ namespace js {}
+ #endif
+ 
+ #if defined(DEBUG)
+-# define JS_DIAGNOSTICS_ASSERT(expr) MOZ_ASSERT(expr)
++# define JS_DIAGNOSTICS_ASSERT(expr) TBB_MOZ_ASSERT(expr)
+ #elif defined(JS_CRASH_DIAGNOSTICS)
+-# define JS_DIAGNOSTICS_ASSERT(expr) do { if (!(expr)) MOZ_CRASH(); } while(0)
++# define JS_DIAGNOSTICS_ASSERT(expr) do { if (!(expr)) TBB_MOZ_CRASH(); } while(0)
+ #else
+ # define JS_DIAGNOSTICS_ASSERT(expr) ((void) 0)
+ #endif
+ 
+-#define JS_STATIC_ASSERT(cond)           MOZ_STATIC_ASSERT(cond, "JS_STATIC_ASSERT")
+-#define JS_STATIC_ASSERT_IF(cond, expr)  MOZ_STATIC_ASSERT_IF(cond, expr, "JS_STATIC_ASSERT_IF")
++#define JS_STATIC_ASSERT(cond)           TBB_MOZ_STATIC_ASSERT(cond, "JS_STATIC_ASSERT")
++#define JS_STATIC_ASSERT_IF(cond, expr)  TBB_MOZ_STATIC_ASSERT_IF(cond, expr, "JS_STATIC_ASSERT_IF")
+ 
+ extern MOZ_NORETURN JS_PUBLIC_API(void)
+ JS_Assert(const char *s, const char *file, int ln);
+diff --git a/js/public/Vector.h b/js/public/Vector.h
+index 8982ad3..71a3372 100644
+--- a/js/public/Vector.h
++++ b/js/public/Vector.h
+@@ -251,13 +251,13 @@ class Vector : private AllocPolicy
+     T *mBegin;
+     size_t mLength;     /* Number of elements in the Vector. */
+     size_t mCapacity;   /* Max number of elements storable in the Vector without resizing. */
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     size_t mReserved;   /* Max elements of reserved or used space in this vector. */
+ #endif
+ 
+     mozilla::AlignedStorage<sInlineBytes> storage;
+ 
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     friend class ReentrancyGuard;
+     bool entered;
+ #endif
+@@ -287,7 +287,7 @@ class Vector : private AllocPolicy
+         return mBegin + mLength;
+     }
+ 
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     size_t reserved() const {
+         JS_ASSERT(mReserved <= mCapacity);
+         JS_ASSERT(mLength <= mReserved);
+@@ -530,7 +530,7 @@ JS_ALWAYS_INLINE
+ Vector<T,N,AllocPolicy>::Vector(AllocPolicy ap)
+   : AllocPolicy(ap), mBegin((T *)storage.addr()), mLength(0),
+     mCapacity(sInlineCapacity)
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+   , mReserved(sInlineCapacity), entered(false)
+ #endif
+ {}
+@@ -540,13 +540,13 @@ template <class T, size_t N, class AllocPolicy>
+ JS_ALWAYS_INLINE
+ Vector<T, N, AllocPolicy>::Vector(MoveRef<Vector> rhs)
+     : AllocPolicy(rhs)
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     , entered(false)
+ #endif
+ {
+     mLength = rhs->mLength;
+     mCapacity = rhs->mCapacity;
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     mReserved = rhs->mReserved;
+ #endif
+ 
+@@ -567,7 +567,7 @@ Vector<T, N, AllocPolicy>::Vector(MoveRef<Vector> rhs)
+         rhs->mBegin = (T *) rhs->storage.addr();
+         rhs->mCapacity = sInlineCapacity;
+         rhs->mLength = 0;
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+         rhs->mReserved = sInlineCapacity;
+ #endif
+     }
+@@ -714,7 +714,7 @@ Vector<T,N,AP>::initCapacity(size_t request)
+         return false;
+     mBegin = newbuf;
+     mCapacity = request;
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     mReserved = request;
+ #endif
+     return true;
+@@ -728,7 +728,7 @@ Vector<T,N,AP>::reserve(size_t request)
+     if (request > mCapacity && !growStorageBy(request - mLength))
+         return false;
+ 
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     if (request > mReserved)
+         mReserved = request;
+     JS_ASSERT(mLength <= mReserved);
+@@ -761,7 +761,7 @@ Vector<T,N,AP>::growByImpl(size_t incr)
+     if (InitNewElems)
+         Impl::initialize(endNoCheck(), newend);
+     mLength += incr;
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     if (mLength > mReserved)
+         mReserved = mLength;
+ #endif
+@@ -826,7 +826,7 @@ Vector<T,N,AP>::clearAndFree()
+     this->free_(beginNoCheck());
+     mBegin = (T *)storage.addr();
+     mCapacity = sInlineCapacity;
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     mReserved = sInlineCapacity;
+ #endif
+ }
+@@ -847,7 +847,7 @@ Vector<T,N,AP>::append(U t)
+     if (mLength == mCapacity && !growStorageBy(1))
+         return false;
+ 
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     if (mLength + 1 > mReserved)
+         mReserved = mLength + 1;
+ #endif
+@@ -874,7 +874,7 @@ Vector<T,N,AP>::appendN(const T &t, size_t needed)
+     if (mLength + needed > mCapacity && !growStorageBy(needed))
+         return false;
+ 
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     if (mLength + needed > mReserved)
+         mReserved = mLength + needed;
+ #endif
+@@ -936,7 +936,7 @@ Vector<T,N,AP>::append(const U *insBegin, const U *insEnd)
+     if (mLength + needed > mCapacity && !growStorageBy(needed))
+         return false;
+ 
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     if (mLength + needed > mReserved)
+         mReserved = mLength + needed;
+ #endif
+@@ -1016,7 +1016,7 @@ Vector<T,N,AP>::extractRawBuffer()
+         mBegin = (T *)storage.addr();
+         mLength = 0;
+         mCapacity = sInlineCapacity;
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+         mReserved = sInlineCapacity;
+ #endif
+     }
+@@ -1052,7 +1052,7 @@ Vector<T,N,AP>::replaceRawBuffer(T *p, size_t aLength)
+         mLength = aLength;
+         mCapacity = aLength;
+     }
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     mReserved = aLength;
+ #endif
+ }
+@@ -1093,7 +1093,7 @@ Vector<T,N,AP>::swap(Vector &other)
+ 
+     Swap(mLength, other.mLength);
+     Swap(mCapacity, other.mCapacity);
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     Swap(mReserved, other.mReserved);
+ #endif
+ }
+diff --git a/js/src/assembler/assembler/LinkBuffer.h b/js/src/assembler/assembler/LinkBuffer.h
+index 8891232..f176dcb 100644
+--- a/js/src/assembler/assembler/LinkBuffer.h
++++ b/js/src/assembler/assembler/LinkBuffer.h
+@@ -70,7 +70,7 @@ public:
+         m_code = executableAllocAndCopy(*masm, executableAllocator, poolp);
+         m_executablePool = *poolp;
+         m_size = masm->m_assembler.size();  // must come after call to executableAllocAndCopy()!
+-#ifndef NDEBUG
++#ifndef TOR_NASSERT
+         m_completed = false;
+ #endif
+         *ok = !!m_code;
+@@ -81,7 +81,7 @@ public:
+         , m_code(NULL)
+         , m_size(0)
+         , m_codeKind(kind)
+-#ifndef NDEBUG
++#ifndef TOR_NASSERT
+         , m_completed(false)
+ #endif
+     {
+@@ -92,7 +92,7 @@ public:
+         , m_code(ncode)
+         , m_size(size)
+         , m_codeKind(kind)
+-#ifndef NDEBUG
++#ifndef TOR_NASSERT
+         , m_completed(false)
+ #endif
+     {
+@@ -208,7 +208,7 @@ protected:
+ 
+     void performFinalization()
+     {
+-#ifndef NDEBUG
++#ifndef TOR_NASSERT
+         ASSERT(!m_completed);
+         m_completed = true;
+ #endif
+@@ -221,7 +221,7 @@ protected:
+     void* m_code;
+     size_t m_size;
+     CodeKind m_codeKind;
+-#ifndef NDEBUG
++#ifndef TOR_NASSERT
+     bool m_completed;
+ #endif
+ };
+diff --git a/js/src/assembler/assembler/MacroAssemblerX86Common.h b/js/src/assembler/assembler/MacroAssemblerX86Common.h
+index 8781642..7f7a291 100644
+--- a/js/src/assembler/assembler/MacroAssemblerX86Common.h
++++ b/js/src/assembler/assembler/MacroAssemblerX86Common.h
+@@ -1449,7 +1449,7 @@ private:
+     
+ 
+ #endif // PLATFORM(MAC)
+-#elif !defined(NDEBUG) // CPU(X86)
++#elif !defined(TOR_NASSERT) // CPU(X86)
+ 
+     // On x86-64 we should never be checking for SSE2 in a non-debug build,
+     // but non debug add this method to keep the asserts above happy.
+diff --git a/js/src/assembler/assembler/MacroAssemblerX86_64.h b/js/src/assembler/assembler/MacroAssemblerX86_64.h
+index c76b6ad..459b49a 100644
+--- a/js/src/assembler/assembler/MacroAssemblerX86_64.h
++++ b/js/src/assembler/assembler/MacroAssemblerX86_64.h
+@@ -30,7 +30,7 @@
+ #ifndef assembler_assembler_MacroAssemblerX86_64_h
+ #define assembler_assembler_MacroAssemblerX86_64_h
+ 
+-#include "mozilla/DebugOnly.h"
++#include "mozilla/DebugOnlyTor.h"
+ 
+ #include "assembler/wtf/Platform.h"
+ 
+@@ -126,7 +126,7 @@ public:
+ 
+     Call call()
+     {
+-        mozilla::DebugOnly<DataLabelPtr> label = moveWithPatch(ImmPtr(0), scratchRegister);
++        mozilla::DebugOnlyTor<DataLabelPtr> label = moveWithPatch(ImmPtr(0), scratchRegister);
+         Call result = Call(m_assembler.call(scratchRegister), Call::Linkable);
+         ASSERT(differenceBetween(label, result) == REPTACH_OFFSET_CALL_R11);
+         return result;
+@@ -134,7 +134,7 @@ public:
+ 
+     Call tailRecursiveCall()
+     {
+-        mozilla::DebugOnly<DataLabelPtr> label = moveWithPatch(ImmPtr(0), scratchRegister);
++        mozilla::DebugOnlyTor<DataLabelPtr> label = moveWithPatch(ImmPtr(0), scratchRegister);
+         Jump newJump = Jump(m_assembler.jmp_r(scratchRegister));
+         ASSERT(differenceBetween(label, newJump) == REPTACH_OFFSET_CALL_R11);
+         return Call::fromTailJump(newJump);
+@@ -143,7 +143,7 @@ public:
+     Call makeTailRecursiveCall(Jump oldJump)
+     {
+         oldJump.link(this);
+-        mozilla::DebugOnly<DataLabelPtr> label = moveWithPatch(ImmPtr(0), scratchRegister);
++        mozilla::DebugOnlyTor<DataLabelPtr> label = moveWithPatch(ImmPtr(0), scratchRegister);
+         Jump newJump = Jump(m_assembler.jmp_r(scratchRegister));
+         ASSERT(differenceBetween(label, newJump) == REPTACH_OFFSET_CALL_R11);
+         return Call::fromTailJump(newJump);
+diff --git a/js/src/assembler/wtf/Assertions.h b/js/src/assembler/wtf/Assertions.h
+index eb0744e..df4948b 100644
+--- a/js/src/assembler/wtf/Assertions.h
++++ b/js/src/assembler/wtf/Assertions.h
+@@ -27,9 +27,9 @@
+ #define assembler_wtf_Assertions_h
+ 
+ #include "Platform.h"
+-#include "mozilla/Assertions.h"
++#include "mozilla/AssertionsTor.h"
+ 
+-#ifndef DEBUG
++#ifdef TOR_NASSERT
+    /*
+     * Prevent unused-variable warnings by defining the macro WTF uses to test
+     * for assertions taking effect.
+@@ -37,13 +37,13 @@
+ #  define ASSERT_DISABLED 1
+ #endif
+ 
+-#define ASSERT(assertion) MOZ_ASSERT(assertion)
++#define ASSERT(assertion) TBB_MOZ_ASSERT(assertion)
+ #define ASSERT_UNUSED(variable, assertion) do { \
+     (void)variable; \
+     ASSERT(assertion); \
+ } while (0)
+-#define ASSERT_NOT_REACHED() MOZ_NOT_REACHED("")
+-#define CRASH() MOZ_CRASH()
+-#define COMPILE_ASSERT(exp, name) MOZ_STATIC_ASSERT(exp, #name)
++#define ASSERT_NOT_REACHED() TBB_MOZ_NOT_REACHED("")
++#define CRASH() TBB_MOZ_CRASH()
++#define COMPILE_ASSERT(exp, name) TBB_MOZ_STATIC_ASSERT(exp, #name)
+ 
+ #endif /* assembler_wtf_Assertions_h */
+diff --git a/js/src/ctypes/CTypes.h b/js/src/ctypes/CTypes.h
+index 39a00ee..89fce64 100644
+--- a/js/src/ctypes/CTypes.h
++++ b/js/src/ctypes/CTypes.h
+@@ -6,7 +6,7 @@
+ #ifndef ctypes_CTypes_h
+ #define ctypes_CTypes_h
+ 
+-#include "mozilla/Assertions.h"
++#include "mozilla/AssertionsTor.h"
+ #include "mozilla/TypeTraits.h"
+ 
+ #include "jscntxt.h"
+@@ -60,7 +60,7 @@ private:
+ template<class T, size_t N = 0>
+ class Array : public Vector<T, N, SystemAllocPolicy>
+ {
+-  MOZ_STATIC_ASSERT((!mozilla::IsSame<T, JS::Value>::value),
++  TBB_MOZ_STATIC_ASSERT((!mozilla::IsSame<T, JS::Value>::value),
+                     "use JS::AutoValueVector instead");
+ };
+ 
+diff --git a/js/src/ds/LifoAlloc.h b/js/src/ds/LifoAlloc.h
+index 3e663e4..8258d9d 100644
+--- a/js/src/ds/LifoAlloc.h
++++ b/js/src/ds/LifoAlloc.h
+@@ -7,7 +7,7 @@
+ #ifndef ds_LifoAlloc_h
+ #define ds_LifoAlloc_h
+ 
+-#include "mozilla/DebugOnly.h"
++#include "mozilla/DebugOnlyTor.h"
+ #include "mozilla/MemoryChecking.h"
+ #include "mozilla/PodOperations.h"
+ #include "mozilla/TypeTraits.h"
+@@ -261,7 +261,7 @@ class LifoAlloc
+         if (latest && (result = latest->tryAlloc(n)))
+             return result;
+ 
+-        mozilla::DebugOnly<BumpChunk *> chunk = getOrCreateChunk(n);
++        mozilla::DebugOnlyTor<BumpChunk *> chunk = getOrCreateChunk(n);
+         JS_ASSERT(chunk);
+ 
+         return latest->allocInfallible(n);
+diff --git a/js/src/frontend/BytecodeEmitter.cpp b/js/src/frontend/BytecodeEmitter.cpp
+index bf8d240..1f3b10c 100644
+--- a/js/src/frontend/BytecodeEmitter.cpp
++++ b/js/src/frontend/BytecodeEmitter.cpp
+@@ -10,7 +10,7 @@
+ 
+ #include "frontend/BytecodeEmitter-inl.h"
+ 
+-#include "mozilla/DebugOnly.h"
++#include "mozilla/DebugOnlyTor.h"
+ #include "mozilla/FloatingPoint.h"
+ #include "mozilla/PodOperations.h"
+ 
+@@ -43,7 +43,7 @@ using namespace js;
+ using namespace js::gc;
+ using namespace js::frontend;
+ 
+-using mozilla::DebugOnly;
++using mozilla::DebugOnlyTor;
+ using mozilla::DoubleIsInt32;
+ using mozilla::PodCopy;
+ 
+@@ -1389,7 +1389,7 @@ BindNameToSlotHelper(JSContext *cx, BytecodeEmitter *bce, ParseNode *pn)
+         if (dn->pn_cookie.level() != bce->script->staticLevel)
+             return true;
+ 
+-        DebugOnly<JSFunction *> fun = bce->sc->asFunctionBox()->function();
++        DebugOnlyTor<JSFunction *> fun = bce->sc->asFunctionBox()->function();
+         JS_ASSERT(fun->isLambda());
+         JS_ASSERT(pn->pn_atom == fun->atom());
+ 
+@@ -2841,7 +2841,7 @@ EmitDestructuringOpsHelper(JSContext *cx, BytecodeEmitter *bce, ParseNode *pn,
+     ParseNode *pn2, *pn3;
+     bool doElemOp;
+ 
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     int stackDepth = bce->stackDepth;
+     JS_ASSERT(stackDepth != 0);
+     JS_ASSERT(pn->isArity(PN_LIST));
+@@ -4065,7 +4065,7 @@ EmitLet(JSContext *cx, BytecodeEmitter *bce, ParseNode *pnLet)
+     StmtInfoBCE stmtInfo(cx);
+     PushBlockScopeBCE(bce, &stmtInfo, *blockObj, bce->offset());
+ 
+-    DebugOnly<ptrdiff_t> bodyBegin = bce->offset();
++    DebugOnlyTor<ptrdiff_t> bodyBegin = bce->offset();
+     if (!EmitEnterBlock(cx, bce, letBody, JSOP_ENTERLET0))
+         return false;
+ 
+@@ -4076,7 +4076,7 @@ EmitLet(JSContext *cx, BytecodeEmitter *bce, ParseNode *pnLet)
+     JS_ASSERT(leaveOp == JSOP_LEAVEBLOCK || leaveOp == JSOP_LEAVEBLOCKEXPR);
+     EMIT_UINT16_IMM_OP(leaveOp, blockObj->slotCount());
+ 
+-    DebugOnly<ptrdiff_t> bodyEnd = bce->offset();
++    DebugOnlyTor<ptrdiff_t> bodyEnd = bce->offset();
+     JS_ASSERT(bodyEnd > bodyBegin);
+ 
+     return PopStatementBCE(cx, bce);
+@@ -4223,7 +4223,7 @@ EmitForIn(JSContext *cx, BytecodeEmitter *bce, ParseNode *pn, ptrdiff_t top)
+     if (EmitLoopHead(cx, bce, NULL) < 0)
+         return false;
+ 
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     int loopDepth = bce->stackDepth;
+ #endif
+ 
+diff --git a/js/src/frontend/TokenStream.cpp b/js/src/frontend/TokenStream.cpp
+index 02da46f..b2aada3 100644
+--- a/js/src/frontend/TokenStream.cpp
++++ b/js/src/frontend/TokenStream.cpp
+@@ -918,7 +918,7 @@ TokenStream::atomize(JSContext *cx, CharBuffer &cb)
+     return AtomizeChars<CanGC>(cx, cb.begin(), cb.length());
+ }
+ 
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+ bool
+ IsTokenSane(Token *tp)
+ {
+diff --git a/js/src/frontend/TokenStream.h b/js/src/frontend/TokenStream.h
+index 48fdec3..f279eff2 100644
+--- a/js/src/frontend/TokenStream.h
++++ b/js/src/frontend/TokenStream.h
+@@ -11,7 +11,7 @@
+  * JS lexical scanner interface.
+  */
+ 
+-#include "mozilla/DebugOnly.h"
++#include "mozilla/DebugOnlyTor.h"
+ #include "mozilla/PodOperations.h"
+ 
+ #include <stddef.h>
+@@ -883,7 +883,7 @@ class MOZ_STACK_CLASS TokenStream
+     }
+ 
+     void consumeKnownChar(int32_t expect) {
+-        mozilla::DebugOnly<int32_t> c = getChar();
++        mozilla::DebugOnlyTor<int32_t> c = getChar();
+         JS_ASSERT(c == expect);
+     }
+ 
+diff --git a/js/src/gc/Heap.h b/js/src/gc/Heap.h
+index 4f04ace..7d571c3 100644
+--- a/js/src/gc/Heap.h
++++ b/js/src/gc/Heap.h
+@@ -100,7 +100,7 @@ struct Cell
+     inline JSRuntime *runtime() const;
+     inline Zone *tenuredZone() const;
+ 
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     inline bool isAligned() const;
+     inline bool isTenured() const;
+ #endif
+@@ -994,7 +994,7 @@ Cell::tenuredZone() const
+     return arenaHeader()->zone;
+ }
+ 
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+ bool
+ Cell::isAligned() const
+ {
+diff --git a/js/src/gc/Marking.cpp b/js/src/gc/Marking.cpp
+index 47a7fca..df55b17 100644
+--- a/js/src/gc/Marking.cpp
++++ b/js/src/gc/Marking.cpp
+@@ -6,7 +6,7 @@
+ 
+ #include "gc/Marking.h"
+ 
+-#include "mozilla/DebugOnly.h"
++#include "mozilla/DebugOnlyTor.h"
+ 
+ #include "jit/IonCode.h"
+ #include "vm/Shape.h"
+@@ -20,7 +20,7 @@
+ using namespace js;
+ using namespace js::gc;
+ 
+-using mozilla::DebugOnly;
++using mozilla::DebugOnlyTor;
+ 
+ void * const js::NullPtr::constNullValue = NULL;
+ 
+@@ -126,7 +126,7 @@ CheckMarkedThing(JSTracer *trc, T *thing)
+     JS_ASSERT(thing->zone()->rt == trc->runtime);
+     JS_ASSERT(trc->debugPrinter || trc->debugPrintArg);
+ 
+-    DebugOnly<JSRuntime *> rt = trc->runtime;
++    DebugOnlyTor<JSRuntime *> rt = trc->runtime;
+ 
+     JS_ASSERT_IF(IS_GC_MARKING_TRACER(trc) && rt->gcManipulatingDeadZones,
+                  !thing->zone()->scheduledForDestruction);
+@@ -378,7 +378,7 @@ gc::MarkKind(JSTracer *trc, void **thingp, JSGCTraceKind kind)
+ {
+     JS_ASSERT(thingp);
+     JS_ASSERT(*thingp);
+-    DebugOnly<Cell *> cell = static_cast<Cell *>(*thingp);
++    DebugOnlyTor<Cell *> cell = static_cast<Cell *>(*thingp);
+     JS_ASSERT_IF(cell->isTenured(), kind == MapAllocToTraceKind(cell->tenuredGetAllocKind()));
+     switch (kind) {
+       case JSTRACE_OBJECT:
+diff --git a/js/src/gc/RootMarking.cpp b/js/src/gc/RootMarking.cpp
+index 861c2d6..ad116b4 100644
+--- a/js/src/gc/RootMarking.cpp
++++ b/js/src/gc/RootMarking.cpp
+@@ -4,7 +4,7 @@
+  * License, v. 2.0. If a copy of the MPL was not distributed with this
+  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+ 
+-#include "mozilla/DebugOnly.h"
++#include "mozilla/DebugOnlyTor.h"
+ #include "mozilla/Util.h"
+ 
+ #include "jsapi.h"
+@@ -476,7 +476,7 @@ AutoGCRooter::trace(JSTracer *trc)
+       case OBJOBJHASHMAP: {
+         AutoObjectObjectHashMap::HashMapImpl &map = static_cast<AutoObjectObjectHashMap *>(this)->map;
+         for (AutoObjectObjectHashMap::Enum e(map); !e.empty(); e.popFront()) {
+-            mozilla::DebugOnly<JSObject *> key = e.front().key;
++            mozilla::DebugOnlyTor<JSObject *> key = e.front().key;
+             MarkObjectRoot(trc, const_cast<JSObject **>(&e.front().key), "AutoObjectObjectHashMap key");
+             JS_ASSERT(key == e.front().key);  // Needs rewriting for moving GC, see bug 726687.
+             MarkObjectRoot(trc, &e.front().value, "AutoObjectObjectHashMap value");
+@@ -488,7 +488,7 @@ AutoGCRooter::trace(JSTracer *trc)
+         AutoObjectUnsigned32HashMap *self = static_cast<AutoObjectUnsigned32HashMap *>(this);
+         AutoObjectUnsigned32HashMap::HashMapImpl &map = self->map;
+         for (AutoObjectUnsigned32HashMap::Enum e(map); !e.empty(); e.popFront()) {
+-            mozilla::DebugOnly<JSObject *> key = e.front().key;
++            mozilla::DebugOnlyTor<JSObject *> key = e.front().key;
+             MarkObjectRoot(trc, const_cast<JSObject **>(&e.front().key), "AutoObjectUnsignedHashMap key");
+             JS_ASSERT(key == e.front().key);  // Needs rewriting for moving GC, see bug 726687.
+         }
+@@ -499,7 +499,7 @@ AutoGCRooter::trace(JSTracer *trc)
+         AutoObjectHashSet *self = static_cast<AutoObjectHashSet *>(this);
+         AutoObjectHashSet::HashSetImpl &set = self->set;
+         for (AutoObjectHashSet::Enum e(set); !e.empty(); e.popFront()) {
+-            mozilla::DebugOnly<JSObject *> obj = e.front();
++            mozilla::DebugOnlyTor<JSObject *> obj = e.front();
+             MarkObjectRoot(trc, const_cast<JSObject **>(&e.front()), "AutoObjectHashSet value");
+             JS_ASSERT(obj == e.front());  // Needs rewriting for moving GC, see bug 726687.
+         }
+diff --git a/js/src/jit/AsmJS.cpp b/js/src/jit/AsmJS.cpp
+index d05289e..a42c81f 100644
+--- a/js/src/jit/AsmJS.cpp
++++ b/js/src/jit/AsmJS.cpp
+@@ -1089,7 +1089,7 @@ class MOZ_STACK_CLASS ModuleCompiler
+ 
+     TokenStream &                  tokenStream_;
+ 
+-    DebugOnly<int>                 currentPass_;
++    DebugOnlyTor<int>                 currentPass_;
+ 
+     bool addStandardLibraryMathName(const char *name, AsmJSMathBuiltin builtin) {
+         JSAtom *atom = Atomize(cx_, name, strlen(name));
+diff --git a/js/src/jit/BacktrackingAllocator.cpp b/js/src/jit/BacktrackingAllocator.cpp
+index 55dbdfb..61b2324 100644
+--- a/js/src/jit/BacktrackingAllocator.cpp
++++ b/js/src/jit/BacktrackingAllocator.cpp
+@@ -9,7 +9,7 @@
+ using namespace js;
+ using namespace js::jit;
+ 
+-using mozilla::DebugOnly;
++using mozilla::DebugOnlyTor;
+ 
+ bool
+ BacktrackingAllocator::init()
+@@ -1117,7 +1117,7 @@ BacktrackingAllocator::populateSafepoints()
+             // is not used with gcthings or nunboxes, or we would have to add the input reg
+             // to this safepoint.
+             if (ins == reg->ins() && !reg->isTemp()) {
+-                DebugOnly<LDefinition*> def = reg->def();
++                DebugOnlyTor<LDefinition*> def = reg->def();
+                 JS_ASSERT_IF(def->policy() == LDefinition::MUST_REUSE_INPUT,
+                              def->type() == LDefinition::GENERAL || def->type() == LDefinition::DOUBLE);
+                 continue;
+diff --git a/js/src/jit/BaselineIC.cpp b/js/src/jit/BaselineIC.cpp
+index 9652169..150dc3c 100644
+--- a/js/src/jit/BaselineIC.cpp
++++ b/js/src/jit/BaselineIC.cpp
+@@ -601,7 +601,7 @@ void
+ ICStubCompiler::enterStubFrame(MacroAssembler &masm, Register scratch)
+ {
+     EmitEnterStubFrame(masm, scratch);
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     entersStubFrame_ = true;
+ #endif
+ }
+@@ -992,7 +992,7 @@ DoProfilerFallback(JSContext *cx, BaselineFrame *frame, ICProfiler_Fallback *stu
+ {
+     RootedScript script(cx, frame->script());
+     RootedFunction func(cx, frame->maybeFun());
+-    mozilla::DebugOnly<ICEntry *> icEntry = stub->icEntry();
++    mozilla::DebugOnlyTor<ICEntry *> icEntry = stub->icEntry();
+ 
+     FallbackICSpew(cx, stub, "Profiler");
+ 
+@@ -4910,7 +4910,7 @@ DoGetNameFallback(JSContext *cx, BaselineFrame *frame, ICGetName_Fallback *stub,
+ {
+     RootedScript script(cx, frame->script());
+     jsbytecode *pc = stub->icEntry()->pc(script);
+-    mozilla::DebugOnly<JSOp> op = JSOp(*pc);
++    mozilla::DebugOnlyTor<JSOp> op = JSOp(*pc);
+     FallbackICSpew(cx, stub, "GetName(%s)", js_CodeName[JSOp(*pc)]);
+ 
+     JS_ASSERT(op == JSOP_NAME || op == JSOP_CALLNAME || op == JSOP_GETGNAME || op == JSOP_CALLGNAME);
+@@ -5043,7 +5043,7 @@ DoBindNameFallback(JSContext *cx, BaselineFrame *frame, ICBindName_Fallback *stu
+                    HandleObject scopeChain, MutableHandleValue res)
+ {
+     jsbytecode *pc = stub->icEntry()->pc(frame->script());
+-    mozilla::DebugOnly<JSOp> op = JSOp(*pc);
++    mozilla::DebugOnlyTor<JSOp> op = JSOp(*pc);
+     FallbackICSpew(cx, stub, "BindName(%s)", js_CodeName[JSOp(*pc)]);
+ 
+     JS_ASSERT(op == JSOP_BINDNAME);
+@@ -5087,7 +5087,7 @@ DoGetIntrinsicFallback(JSContext *cx, BaselineFrame *frame, ICGetIntrinsic_Fallb
+ {
+     RootedScript script(cx, frame->script());
+     jsbytecode *pc = stub->icEntry()->pc(script);
+-    mozilla::DebugOnly<JSOp> op = JSOp(*pc);
++    mozilla::DebugOnlyTor<JSOp> op = JSOp(*pc);
+     FallbackICSpew(cx, stub, "GetIntrinsic(%s)", js_CodeName[JSOp(*pc)]);
+ 
+     JS_ASSERT(op == JSOP_GETINTRINSIC || op == JSOP_CALLINTRINSIC);
+diff --git a/js/src/jit/BaselineIC.h b/js/src/jit/BaselineIC.h
+index 63da318..2d13e75 100644
+--- a/js/src/jit/BaselineIC.h
++++ b/js/src/jit/BaselineIC.h
+@@ -980,7 +980,7 @@ class ICStubCompiler
+     // Prevent GC in the middle of stub compilation.
+     js::gc::AutoSuppressGC suppressGC;
+ 
+-    mozilla::DebugOnly<bool> entersStubFrame_;
++    mozilla::DebugOnlyTor<bool> entersStubFrame_;
+ 
+   protected:
+     JSContext *cx;
+diff --git a/js/src/jit/BaselineInspector.h b/js/src/jit/BaselineInspector.h
+index bb40c3a..72035b1 100644
+--- a/js/src/jit/BaselineInspector.h
++++ b/js/src/jit/BaselineInspector.h
+@@ -67,7 +67,7 @@ class BaselineInspector
+     }
+ 
+   private:
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     bool isValidPC(jsbytecode *pc) {
+         return (pc >= script->code) && (pc < script->code + script->length);
+     }
+diff --git a/js/src/jit/BaselineJIT.cpp b/js/src/jit/BaselineJIT.cpp
+index b3832f0..f6b0bd1 100644
+--- a/js/src/jit/BaselineJIT.cpp
++++ b/js/src/jit/BaselineJIT.cpp
+@@ -35,7 +35,7 @@ BaselineScript::BaselineScript(uint32_t prologueOffset, uint32_t spsPushToggleOf
+   : method_(NULL),
+     fallbackStubSpace_(),
+     prologueOffset_(prologueOffset),
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     spsOn_(false),
+ #endif
+     spsPushToggleOffset_(spsPushToggleOffset),
+@@ -757,7 +757,7 @@ BaselineScript::toggleSPS(bool enable)
+         Assembler::ToggleToCmp(pushToggleLocation);
+     else
+         Assembler::ToggleToJmp(pushToggleLocation);
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     spsOn_ = enable;
+ #endif
+ }
+diff --git a/js/src/jit/BaselineJIT.h b/js/src/jit/BaselineJIT.h
+index c3f9981..5db487f 100644
+--- a/js/src/jit/BaselineJIT.h
++++ b/js/src/jit/BaselineJIT.h
+@@ -110,8 +110,8 @@ struct BaselineScript
+     uint32_t prologueOffset_;
+ 
+     // The offsets for the toggledJump instructions for SPS update ICs.
+-#ifdef DEBUG
+-    mozilla::DebugOnly<bool> spsOn_;
++#ifndef TOR_NASSERT
++    mozilla::DebugOnlyTor<bool> spsOn_;
+ #endif
+     uint32_t spsPushToggleOffset_;
+ 
+diff --git a/js/src/jit/CodeGenerator.cpp b/js/src/jit/CodeGenerator.cpp
+index 534ae07..5d263d2 100644
+--- a/js/src/jit/CodeGenerator.cpp
++++ b/js/src/jit/CodeGenerator.cpp
+@@ -4,9 +4,9 @@
+  * License, v. 2.0. If a copy of the MPL was not distributed with this
+  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+ 
+-#include "mozilla/Assertions.h"
++#include "mozilla/AssertionsTor.h"
+ #include "mozilla/Attributes.h"
+-#include "mozilla/DebugOnly.h"
++#include "mozilla/DebugOnlyTor.h"
+ #include "mozilla/Util.h"
+ 
+ #include "PerfSpewer.h"
+@@ -32,7 +32,7 @@
+ using namespace js;
+ using namespace js::jit;
+ 
+-using mozilla::DebugOnly;
++using mozilla::DebugOnlyTor;
+ using mozilla::Maybe;
+ 
+ namespace js {
+@@ -317,19 +317,19 @@ class OutOfLineTestObject : public OutOfLineCodeBase<CodeGenerator>
+     Label *ifTruthy_;
+     Label *ifFalsy_;
+ 
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     bool initialized() { return ifTruthy_ != NULL; }
+ #endif
+ 
+   public:
+     OutOfLineTestObject()
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+       : ifTruthy_(NULL), ifFalsy_(NULL)
+ #endif
+     { }
+ 
+     bool accept(CodeGenerator *codegen) MOZ_FINAL MOZ_OVERRIDE {
+-        MOZ_ASSERT(initialized());
++        TBB_MOZ_ASSERT(initialized());
+         codegen->emitOOLTestObject(objreg_, ifTruthy_, ifFalsy_, scratch_);
+         return true;
+     }
+@@ -338,8 +338,8 @@ class OutOfLineTestObject : public OutOfLineCodeBase<CodeGenerator>
+     // jump to if the object is truthy or falsy, and a scratch register for
+     // use in the out-of-line path.
+     void setInputAndTargets(Register objreg, Label *ifTruthy, Label *ifFalsy, Register scratch) {
+-        MOZ_ASSERT(!initialized());
+-        MOZ_ASSERT(ifTruthy);
++        TBB_MOZ_ASSERT(!initialized());
++        TBB_MOZ_ASSERT(ifTruthy);
+         objreg_ = objreg;
+         scratch_ = scratch;
+         ifTruthy_ = ifTruthy;
+@@ -438,7 +438,7 @@ CodeGenerator::testValueTruthy(const ValueOperand &value,
+ bool
+ CodeGenerator::visitTestOAndBranch(LTestOAndBranch *lir)
+ {
+-    MOZ_ASSERT(lir->mir()->operandMightEmulateUndefined(),
++    TBB_MOZ_ASSERT(lir->mir()->operandMightEmulateUndefined(),
+                "Objects which can't emulate undefined should have been constant-folded");
+ 
+     OutOfLineTestObject *ool = new OutOfLineTestObject();
+@@ -516,7 +516,7 @@ CodeGenerator::visitTypeObjectDispatch(LTypeObjectDispatch *lir)
+         JSFunction *func = mir->getCase(i);
+         LBlock *target = mir->getCaseBlock(i)->lir();
+ 
+-        DebugOnly<bool> found = false;
++        DebugOnlyTor<bool> found = false;
+         for (size_t j = 0; j < propTable->numEntries(); j++) {
+             if (propTable->getFunction(j) != func)
+                 continue;
+@@ -821,12 +821,12 @@ bool
+ CodeGenerator::visitReturn(LReturn *lir)
+ {
+ #if defined(JS_NUNBOX32)
+-    DebugOnly<LAllocation *> type    = lir->getOperand(TYPE_INDEX);
+-    DebugOnly<LAllocation *> payload = lir->getOperand(PAYLOAD_INDEX);
++    DebugOnlyTor<LAllocation *> type    = lir->getOperand(TYPE_INDEX);
++    DebugOnlyTor<LAllocation *> payload = lir->getOperand(PAYLOAD_INDEX);
+     JS_ASSERT(ToRegister(type)    == JSReturnReg_Type);
+     JS_ASSERT(ToRegister(payload) == JSReturnReg_Data);
+ #elif defined(JS_PUNBOX64)
+-    DebugOnly<LAllocation *> result = lir->getOperand(0);
++    DebugOnlyTor<LAllocation *> result = lir->getOperand(0);
+     JS_ASSERT(ToRegister(result) == JSReturnReg);
+ #endif
+     // Don't emit a jump to the return label if this is the last block.
+@@ -1317,7 +1317,7 @@ CodeGenerator::visitCallNative(LCallNative *call)
+     // Misc. temporary registers.
+     const Register tempReg = ToRegister(call->getTempReg());
+ 
+-    DebugOnly<uint32_t> initialStack = masm.framePushed();
++    DebugOnlyTor<uint32_t> initialStack = masm.framePushed();
+ 
+     masm.checkStackAlignment();
+ 
+@@ -1400,7 +1400,7 @@ CodeGenerator::visitCallDOMNative(LCallDOMNative *call)
+     const Register argPrivate   = ToRegister(call->getArgPrivate());
+     const Register argArgs      = ToRegister(call->getArgArgs());
+ 
+-    DebugOnly<uint32_t> initialStack = masm.framePushed();
++    DebugOnlyTor<uint32_t> initialStack = masm.framePushed();
+ 
+     masm.checkStackAlignment();
+ 
+@@ -2389,7 +2389,7 @@ CodeGenerator::maybeCreateScriptCounts()
+             MResumePoint *resume = block->entryResumePoint();
+             while (resume->caller())
+                 resume = resume->caller();
+-            DebugOnly<uint32_t> offset = resume->pc() - script->code;
++            DebugOnlyTor<uint32_t> offset = resume->pc() - script->code;
+             JS_ASSERT(offset < script->length);
+         }
+ 
+@@ -2694,7 +2694,7 @@ CodeGenerator::visitNewArray(LNewArray *lir)
+     JS_ASSERT(gen->info().executionMode() == SequentialExecution);
+     Register objReg = ToRegister(lir->output());
+     JSObject *templateObject = lir->mir()->templateObject();
+-    DebugOnly<uint32_t> count = lir->mir()->count();
++    DebugOnlyTor<uint32_t> count = lir->mir()->count();
+ 
+     JS_ASSERT(count < JSObject::NELEMENTS_LIMIT);
+ 
+@@ -3695,7 +3695,7 @@ CodeGenerator::visitIsNullOrLikeUndefined(LIsNullOrLikeUndefined *lir)
+     Register output = ToRegister(lir->output());
+ 
+     if (op == JSOP_EQ || op == JSOP_NE) {
+-        MOZ_ASSERT(lir->mir()->lhs()->type() != MIRType_Object ||
++        TBB_MOZ_ASSERT(lir->mir()->lhs()->type() != MIRType_Object ||
+                    lir->mir()->operandMightEmulateUndefined(),
+                    "Operands which can't emulate undefined should have been folded");
+ 
+@@ -3783,7 +3783,7 @@ CodeGenerator::visitIsNullOrLikeUndefinedAndBranch(LIsNullOrLikeUndefinedAndBran
+             op = JSOP_EQ;
+         }
+ 
+-        MOZ_ASSERT(lir->mir()->lhs()->type() != MIRType_Object ||
++        TBB_MOZ_ASSERT(lir->mir()->lhs()->type() != MIRType_Object ||
+                    lir->mir()->operandMightEmulateUndefined(),
+                    "Operands which can't emulate undefined should have been folded");
+ 
+@@ -3831,14 +3831,14 @@ static const VMFunction ConcatStringsInfo = FunctionInfo<ConcatStringsFn>(Concat
+ bool
+ CodeGenerator::visitEmulatesUndefined(LEmulatesUndefined *lir)
+ {
+-    MOZ_ASSERT(lir->mir()->compareType() == MCompare::Compare_Undefined ||
++    TBB_MOZ_ASSERT(lir->mir()->compareType() == MCompare::Compare_Undefined ||
+                lir->mir()->compareType() == MCompare::Compare_Null);
+-    MOZ_ASSERT(lir->mir()->lhs()->type() == MIRType_Object);
+-    MOZ_ASSERT(lir->mir()->operandMightEmulateUndefined(),
++    TBB_MOZ_ASSERT(lir->mir()->lhs()->type() == MIRType_Object);
++    TBB_MOZ_ASSERT(lir->mir()->operandMightEmulateUndefined(),
+                "If the object couldn't emulate undefined, this should have been folded.");
+ 
+     JSOp op = lir->mir()->jsop();
+-    MOZ_ASSERT(op == JSOP_EQ || op == JSOP_NE, "Strict equality should have been folded");
++    TBB_MOZ_ASSERT(op == JSOP_EQ || op == JSOP_NE, "Strict equality should have been folded");
+ 
+     OutOfLineTestObjectWithLabels *ool = new OutOfLineTestObjectWithLabels();
+     if (!addOutOfLineCode(ool))
+@@ -3866,13 +3866,13 @@ CodeGenerator::visitEmulatesUndefined(LEmulatesUndefined *lir)
+ bool
+ CodeGenerator::visitEmulatesUndefinedAndBranch(LEmulatesUndefinedAndBranch *lir)
+ {
+-    MOZ_ASSERT(lir->mir()->compareType() == MCompare::Compare_Undefined ||
++    TBB_MOZ_ASSERT(lir->mir()->compareType() == MCompare::Compare_Undefined ||
+                lir->mir()->compareType() == MCompare::Compare_Null);
+-    MOZ_ASSERT(lir->mir()->operandMightEmulateUndefined(),
++    TBB_MOZ_ASSERT(lir->mir()->operandMightEmulateUndefined(),
+                "Operands which can't emulate undefined should have been folded");
+ 
+     JSOp op = lir->mir()->jsop();
+-    MOZ_ASSERT(op == JSOP_EQ || op == JSOP_NE, "Strict equality should have been folded");
++    TBB_MOZ_ASSERT(op == JSOP_EQ || op == JSOP_NE, "Strict equality should have been folded");
+ 
+     OutOfLineTestObject *ool = new OutOfLineTestObject();
+     if (!addOutOfLineCode(ool))
+@@ -4136,7 +4136,7 @@ CodeGenerator::visitSetInitializedLength(LSetInitializedLength *lir)
+ bool
+ CodeGenerator::visitNotO(LNotO *lir)
+ {
+-    MOZ_ASSERT(lir->mir()->operandMightEmulateUndefined(),
++    TBB_MOZ_ASSERT(lir->mir()->operandMightEmulateUndefined(),
+                "This should be constant-folded if the object can't emulate undefined.");
+ 
+     OutOfLineTestObjectWithLabels *ool = new OutOfLineTestObjectWithLabels();
+@@ -6585,7 +6585,7 @@ CodeGenerator::visitGetDOMProperty(LGetDOMProperty *ins)
+     const Register PrivateReg = ToRegister(ins->getPrivReg());
+     const Register ValueReg = ToRegister(ins->getValueReg());
+ 
+-    DebugOnly<uint32_t> initialStack = masm.framePushed();
++    DebugOnlyTor<uint32_t> initialStack = masm.framePushed();
+ 
+     masm.checkStackAlignment();
+ 
+@@ -6654,7 +6654,7 @@ CodeGenerator::visitSetDOMProperty(LSetDOMProperty *ins)
+     const Register PrivateReg = ToRegister(ins->getPrivReg());
+     const Register ValueReg = ToRegister(ins->getValueReg());
+ 
+-    DebugOnly<uint32_t> initialStack = masm.framePushed();
++    DebugOnlyTor<uint32_t> initialStack = masm.framePushed();
+ 
+     masm.checkStackAlignment();
+ 
+diff --git a/js/src/jit/InlineList.h b/js/src/jit/InlineList.h
+index 441fdfe..37d2058 100644
+--- a/js/src/jit/InlineList.h
++++ b/js/src/jit/InlineList.h
+@@ -7,7 +7,7 @@
+ #ifndef jit_InlineList_h
+ #define jit_InlineList_h
+ 
+-#include "mozilla/DebugOnly.h"
++#include "mozilla/DebugOnlyTor.h"
+ 
+ #include "jsutil.h"
+ 
+@@ -40,7 +40,7 @@ class InlineForwardList : protected InlineForwardListNode<T>
+     typedef InlineForwardListNode<T> Node;
+ 
+     Node *tail_;
+-    mozilla::DebugOnly<int> modifyCount_;
++    mozilla::DebugOnlyTor<int> modifyCount_;
+ 
+     InlineForwardList<T> *thisFromConstructor() {
+         return this;
+@@ -140,7 +140,7 @@ private:
+     InlineForwardListIterator<T>(const InlineForwardList<T> *owner)
+       : prev(const_cast<Node *>(static_cast<const Node *>(owner))),
+         iter(owner ? owner->next : NULL)
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+       , owner_(owner),
+         modifyCount_(owner ? owner->modifyCount_.value : 0)
+ #endif
+@@ -179,10 +179,10 @@ private:
+     Node *prev;
+     Node *iter;
+ 
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     const InlineForwardList<T> *owner_;
+ #endif
+-    mozilla::DebugOnly<int> modifyCount_;
++    mozilla::DebugOnlyTor<int> modifyCount_;
+ };
+ 
+ template <typename T> class InlineList;
+diff --git a/js/src/jit/IonBuilder.cpp b/js/src/jit/IonBuilder.cpp
+index a0c70f5..6c4d8e3 100644
+--- a/js/src/jit/IonBuilder.cpp
++++ b/js/src/jit/IonBuilder.cpp
+@@ -6,7 +6,7 @@
+ 
+ #include "jit/IonBuilder.h"
+ 
+-#include "mozilla/DebugOnly.h"
++#include "mozilla/DebugOnlyTor.h"
+ 
+ #include "builtin/Eval.h"
+ #include "frontend/SourceNotes.h"
+@@ -31,7 +31,7 @@
+ using namespace js;
+ using namespace js::jit;
+ 
+-using mozilla::DebugOnly;
++using mozilla::DebugOnlyTor;
+ 
+ IonBuilder::IonBuilder(JSContext *cx, TempAllocator *temp, MIRGraph *graph,
+                        BaselineInspector *inspector, CompileInfo *info, BaselineFrame *baselineFrame,
+@@ -194,7 +194,7 @@ IonBuilder::getPolyCallTargets(types::StackTypeSet *calleeTypes,
+             {
+                 return false;
+             }
+-            DebugOnly<bool> appendOk = targets.append(obj);
++            DebugOnlyTor<bool> appendOk = targets.append(obj);
+             JS_ASSERT(appendOk);
+         } else {
+             /* Temporarily disable heavyweight-function inlining. */
+@@ -209,7 +209,7 @@ IonBuilder::getPolyCallTargets(types::StackTypeSet *calleeTypes,
+             }
+             if (!typeObj->interpretedFunction->getOrCreateScript(cx))
+                 return false;
+-            DebugOnly<bool> appendOk = targets.append(typeObj->interpretedFunction);
++            DebugOnlyTor<bool> appendOk = targets.append(typeObj->interpretedFunction);
+             JS_ASSERT(appendOk);
+ 
+             *gotLambda = true;
+@@ -2159,7 +2159,7 @@ IonBuilder::processBreak(JSOp op, jssrcnote *sn)
+ 
+     // Find the break target.
+     jsbytecode *target = pc + GetJumpOffset(pc);
+-    DebugOnly<bool> found = false;
++    DebugOnlyTor<bool> found = false;
+ 
+     if (SN_TYPE(sn) == SRC_BREAK2LABEL) {
+         for (size_t i = labels_.length() - 1; i < labels_.length(); i--) {
+@@ -2343,7 +2343,7 @@ IonBuilder::maybeLoop(JSOp op, jssrcnote *sn)
+ void
+ IonBuilder::assertValidLoopHeadOp(jsbytecode *pc)
+ {
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     JS_ASSERT(JSOp(*pc) == JSOP_LOOPHEAD);
+ 
+     // Make sure this is the next opcode after the loop header,
+@@ -3772,7 +3772,7 @@ IonBuilder::makePolyInlineDispatch(JSContext *cx, CallInfo &callInfo,
+         MResumePoint::New(current, pc, callerResumePoint_, MResumePoint::ResumeAt);
+     if (!preCallResumePoint)
+         return NULL;
+-    DebugOnly<size_t> preCallFuncDefnIdx = preCallResumePoint->numOperands() - (((size_t) callInfo.argc()) + 2);
++    DebugOnlyTor<size_t> preCallFuncDefnIdx = preCallResumePoint->numOperands() - (((size_t) callInfo.argc()) + 2);
+     JS_ASSERT(preCallResumePoint->getOperand(preCallFuncDefnIdx) == callInfo.fun());
+ 
+     MDefinition *targetObject = getPropCache->object();
+@@ -3816,7 +3816,7 @@ IonBuilder::makePolyInlineDispatch(JSContext *cx, CallInfo &callInfo,
+ 
+     // The fallbackBlock inherits the state of the stack right before the getprop, which
+     // means we have to pop off the target of the getprop before performing it.
+-    DebugOnly<MDefinition *> checkTargetObject = fallbackBlock->pop();
++    DebugOnlyTor<MDefinition *> checkTargetObject = fallbackBlock->pop();
+     JS_ASSERT(checkTargetObject == targetObject);
+ 
+     // Remove the instructions leading to the function definition from the current
+@@ -3994,7 +3994,7 @@ IonBuilder::inlineTypeObjectFallback(CallInfo &callInfo, MBasicBlock *dispatchBl
+     if (!preCallResumePoint)
+         return false;
+ 
+-    DebugOnly<size_t> preCallFuncIndex = preCallResumePoint->numOperands() - callInfo.numFormals();
++    DebugOnlyTor<size_t> preCallFuncIndex = preCallResumePoint->numOperands() - callInfo.numFormals();
+     JS_ASSERT(preCallResumePoint->getOperand(preCallFuncIndex) == fallbackInfo.fun());
+ 
+     // In the dispatch block, replace the function's slot entry with Undefined.
+@@ -4022,7 +4022,7 @@ IonBuilder::inlineTypeObjectFallback(CallInfo &callInfo, MBasicBlock *dispatchBl
+ 
+     // Since the getPropBlock inherited the stack from right before the MGetPropertyCache,
+     // the target of the MGetPropertyCache is still on the stack.
+-    DebugOnly<MDefinition *> checkObject = getPropBlock->pop();
++    DebugOnlyTor<MDefinition *> checkObject = getPropBlock->pop();
+     JS_ASSERT(checkObject == cache->object());
+ 
+     // Move the MGetPropertyCache and friends into the getPropBlock.
+@@ -7387,7 +7387,7 @@ IonBuilder::TestCommonPropFunc(JSContext *cx, types::StackTypeSet *types, Handle
+                 // above.
+                 JS_ASSERT(propSet);
+                 // Asking, freeze by asking.
+-                DebugOnly<bool> isOwn = propSet->isOwnProperty(cx, curType, false);
++                DebugOnlyTor<bool> isOwn = propSet->isOwnProperty(cx, curType, false);
+                 JS_ASSERT(!isOwn);
+                 // Don't mark the proto. It will be held down by the shape
+                 // guard. This allows us tp use properties found on prototypes
+diff --git a/js/src/jit/IonCaches.cpp b/js/src/jit/IonCaches.cpp
+index 933d42d..06f3ebb 100644
+--- a/js/src/jit/IonCaches.cpp
++++ b/js/src/jit/IonCaches.cpp
+@@ -4,7 +4,7 @@
+  * License, v. 2.0. If a copy of the MPL was not distributed with this
+  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+ 
+-#include "mozilla/DebugOnly.h"
++#include "mozilla/DebugOnlyTor.h"
+ 
+ #include "PerfSpewer.h"
+ #include "CodeGenerator.h"
+@@ -23,7 +23,7 @@
+ using namespace js;
+ using namespace js::jit;
+ 
+-using mozilla::DebugOnly;
++using mozilla::DebugOnlyTor;
+ 
+ void
+ CodeLocationJump::repoint(IonCode *code, MacroAssembler *masm)
+@@ -893,7 +893,7 @@ GenerateCallGetter(JSContext *cx, IonScript *ion, MacroAssembler &masm,
+     JS_ASSERT_IF(!callNative, IsCacheableGetPropCallPropertyOp(obj, holder, shape));
+ 
+     // TODO: ensure stack is aligned?
+-    DebugOnly<uint32_t> initialStack = masm.framePushed();
++    DebugOnlyTor<uint32_t> initialStack = masm.framePushed();
+ 
+     Label success, exception;
+ 
+@@ -1061,7 +1061,7 @@ GetPropertyIC::attachDOMProxyShadowed(JSContext *cx, IonScript *ion, JSObject *o
+     // saveLive()
+     masm.PushRegsInMask(liveRegs_);
+ 
+-    DebugOnly<uint32_t> initialStack = masm.framePushed();
++    DebugOnlyTor<uint32_t> initialStack = masm.framePushed();
+ 
+     // Remaining registers should be free, but we need to use |object| still
+     // so leave it alone.
+@@ -1848,7 +1848,7 @@ SetPropertyIC::attachSetterCall(JSContext *cx, IonScript *ion,
+     Register argVpReg        = regSet.takeGeneral();
+ 
+     // Ensure stack is aligned.
+-    DebugOnly<uint32_t> initialStack = masm.framePushed();
++    DebugOnlyTor<uint32_t> initialStack = masm.framePushed();
+ 
+     Label success, exception;
+ 
+@@ -2282,7 +2282,7 @@ GetElementIC::attachTypedArrayElement(JSContext *cx, IonScript *ion, JSObject *o
+ 
+     // The output register is not yet specialized as a float register, the only
+     // way to accept float typed arrays for now is to return a Value type.
+-    DebugOnly<bool> floatOutput = arrayType == TypedArray::TYPE_FLOAT32 ||
++    DebugOnlyTor<bool> floatOutput = arrayType == TypedArray::TYPE_FLOAT32 ||
+                                   arrayType == TypedArray::TYPE_FLOAT64;
+     JS_ASSERT_IF(!output().hasValue(), !floatOutput);
+ 
+diff --git a/js/src/jit/IonFrames.h b/js/src/jit/IonFrames.h
+index fcd33e6..33dfd94 100644
+--- a/js/src/jit/IonFrames.h
++++ b/js/src/jit/IonFrames.h
+@@ -9,7 +9,7 @@
+ 
+ #ifdef JS_ION
+ 
+-#include "mozilla/DebugOnly.h"
++#include "mozilla/DebugOnlyTor.h"
+ 
+ #include "jsfun.h"
+ #include "jstypes.h"
+@@ -123,7 +123,7 @@ class SafepointIndex
+         uint32_t safepointOffset_;
+     };
+ 
+-    mozilla::DebugOnly<bool> resolved;
++    mozilla::DebugOnlyTor<bool> resolved;
+ 
+   public:
+     SafepointIndex(uint32_t displacement, LSafepoint *safepoint)
+diff --git a/js/src/jit/LinearScan.cpp b/js/src/jit/LinearScan.cpp
+index 1961da5..bf9be81 100644
+--- a/js/src/jit/LinearScan.cpp
++++ b/js/src/jit/LinearScan.cpp
+@@ -6,7 +6,7 @@
+ 
+ #include <limits.h>
+ 
+-#include "mozilla/DebugOnly.h"
++#include "mozilla/DebugOnlyTor.h"
+ 
+ #include "BitSet.h"
+ #include "LinearScan.h"
+@@ -17,7 +17,7 @@
+ using namespace js;
+ using namespace js::jit;
+ 
+-using mozilla::DebugOnly;
++using mozilla::DebugOnlyTor;
+ 
+ /*
+  * Merge virtual register intervals into the UnhandledQueue, taking advantage
+@@ -476,7 +476,7 @@ LinearScanAllocator::populateSafepoints()
+             // is not used with gcthings or nunboxes, or we would have to add the input reg
+             // to this safepoint.
+             if (ins == reg->ins() && !reg->isTemp()) {
+-                DebugOnly<LDefinition*> def = reg->def();
++                DebugOnlyTor<LDefinition*> def = reg->def();
+                 JS_ASSERT_IF(def->policy() == LDefinition::MUST_REUSE_INPUT,
+                              def->type() == LDefinition::GENERAL || def->type() == LDefinition::DOUBLE);
+                 continue;
+diff --git a/js/src/jit/LiveRangeAllocator.cpp b/js/src/jit/LiveRangeAllocator.cpp
+index e6d1eec..5f46a72 100644
+--- a/js/src/jit/LiveRangeAllocator.cpp
++++ b/js/src/jit/LiveRangeAllocator.cpp
+@@ -4,7 +4,7 @@
+  * License, v. 2.0. If a copy of the MPL was not distributed with this
+  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+ 
+-#include "mozilla/DebugOnly.h"
++#include "mozilla/DebugOnlyTor.h"
+ 
+ #include "LiveRangeAllocator.h"
+ 
+@@ -14,7 +14,7 @@
+ using namespace js;
+ using namespace js::jit;
+ 
+-using mozilla::DebugOnly;
++using mozilla::DebugOnlyTor;
+ 
+ int
+ Requirement::priority() const
+@@ -355,7 +355,7 @@ VirtualRegister::getFirstInterval()
+ template bool LiveRangeAllocator<LinearScanVirtualRegister>::buildLivenessInfo();
+ template bool LiveRangeAllocator<BacktrackingVirtualRegister>::buildLivenessInfo();
+ 
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+ static inline bool
+ NextInstructionHasFixedUses(LBlock *block, LInstruction *ins)
+ {
+@@ -642,8 +642,8 @@ LiveRangeAllocator<VREG>::buildLivenessInfo()
+                 }
+             }
+ 
+-            DebugOnly<bool> hasUseRegister = false;
+-            DebugOnly<bool> hasUseRegisterAtStart = false;
++            DebugOnlyTor<bool> hasUseRegister = false;
++            DebugOnlyTor<bool> hasUseRegisterAtStart = false;
+ 
+             for (LInstruction::InputIterator alloc(**ins); alloc.more(); alloc.next()) {
+                 if (alloc->isUse()) {
+diff --git a/js/src/jit/LiveRangeAllocator.h b/js/src/jit/LiveRangeAllocator.h
+index 4c349b1..f119eea 100644
+--- a/js/src/jit/LiveRangeAllocator.h
++++ b/js/src/jit/LiveRangeAllocator.h
+@@ -7,7 +7,7 @@
+ #ifndef jit_LiveRangeAllocator_h
+ #define jit_LiveRangeAllocator_h
+ 
+-#include "mozilla/DebugOnly.h"
++#include "mozilla/DebugOnlyTor.h"
+ 
+ #include "RegisterAllocator.h"
+ #include "StackSlotAllocator.h"
+@@ -122,7 +122,7 @@ UseCompatibleWith(const LUse *use, LAllocation alloc)
+     return false;
+ }
+ 
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+ 
+ static inline bool
+ DefinitionCompatibleWith(LInstruction *ins, const LDefinition *def, LAllocation alloc)
+@@ -261,7 +261,7 @@ class LiveInterval
+     const Range *getRange(size_t i) const {
+         return &ranges_[i];
+     }
+-    void setLastProcessedRange(size_t range, mozilla::DebugOnly<CodePosition> pos) {
++    void setLastProcessedRange(size_t range, mozilla::DebugOnlyTor<CodePosition> pos) {
+         // If the range starts after pos, we may not be able to use
+         // it in the next lastProcessedRangeIfValid call.
+         JS_ASSERT(ranges_[range].from <= pos);
+diff --git a/js/src/jit/Lowering.cpp b/js/src/jit/Lowering.cpp
+index fd1dc57..9ee6072 100644
+--- a/js/src/jit/Lowering.cpp
++++ b/js/src/jit/Lowering.cpp
+@@ -14,7 +14,7 @@
+ #include "jsbool.h"
+ #include "jsnum.h"
+ #include "shared/Lowering-shared-inl.h"
+-#include "mozilla/DebugOnly.h"
++#include "mozilla/DebugOnlyTor.h"
+ 
+ using namespace js;
+ using namespace jit;
+@@ -263,7 +263,7 @@ LIRGenerator::visitPrepareCall(MPrepareCall *ins)
+ {
+     allocateArguments(ins->argc());
+ 
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     if (!prepareCallStack_.append(ins))
+         return false;
+ #endif
+@@ -380,7 +380,7 @@ LIRGenerator::visitCall(MCall *call)
+         GetTempRegForIntArg(0, 0, &cxReg);
+         GetTempRegForIntArg(1, 0, &objReg);
+         GetTempRegForIntArg(2, 0, &privReg);
+-        mozilla::DebugOnly<bool> ok = GetTempRegForIntArg(3, 0, &argsReg);
++        mozilla::DebugOnlyTor<bool> ok = GetTempRegForIntArg(3, 0, &argsReg);
+         MOZ_ASSERT(ok, "How can we not have four temp registers?");
+         LCallDOMNative *lir = new LCallDOMNative(argslot, tempFixed(cxReg),
+                                                  tempFixed(objReg), tempFixed(privReg),
+@@ -398,7 +398,7 @@ LIRGenerator::visitCall(MCall *call)
+ 
+             // Even though this is just a temp reg, use the same API to avoid
+             // register collisions.
+-            mozilla::DebugOnly<bool> ok = GetTempRegForIntArg(3, 0, &tmpReg);
++            mozilla::DebugOnlyTor<bool> ok = GetTempRegForIntArg(3, 0, &tmpReg);
+             MOZ_ASSERT(ok, "How can we not have four temp registers?");
+ 
+             LCallNative *lir = new LCallNative(argslot, tempFixed(cxReg),
+@@ -1395,7 +1395,7 @@ bool
+ LIRGenerator::visitToDouble(MToDouble *convert)
+ {
+     MDefinition *opd = convert->input();
+-    mozilla::DebugOnly<MToDouble::ConversionKind> conversion = convert->conversion();
++    mozilla::DebugOnlyTor<MToDouble::ConversionKind> conversion = convert->conversion();
+ 
+     switch (opd->type()) {
+       case MIRType_Value:
+@@ -2767,7 +2767,7 @@ LIRGenerator::visitSetDOMProperty(MSetDOMProperty *ins)
+     // don't clobber registers we're already using.
+     Register tempReg1, tempReg2;
+     GetTempRegForIntArg(4, 0, &tempReg1);
+-    mozilla::DebugOnly<bool> ok = GetTempRegForIntArg(5, 0, &tempReg2);
++    mozilla::DebugOnlyTor<bool> ok = GetTempRegForIntArg(5, 0, &tempReg2);
+     MOZ_ASSERT(ok, "How can we not have six temp registers?");
+     if (!useBoxFixed(lir, LSetDOMProperty::Value, val, tempReg1, tempReg2))
+         return false;
+@@ -2782,7 +2782,7 @@ LIRGenerator::visitGetDOMProperty(MGetDOMProperty *ins)
+     GetTempRegForIntArg(0, 0, &cxReg);
+     GetTempRegForIntArg(1, 0, &objReg);
+     GetTempRegForIntArg(2, 0, &privReg);
+-    mozilla::DebugOnly<bool> ok = GetTempRegForIntArg(3, 0, &valueReg);
++    mozilla::DebugOnlyTor<bool> ok = GetTempRegForIntArg(3, 0, &valueReg);
+     MOZ_ASSERT(ok, "How can we not have four temp registers?");
+     LGetDOMProperty *lir = new LGetDOMProperty(tempFixed(cxReg),
+                                                useFixed(ins->object(), objReg),
+diff --git a/js/src/jit/Lowering.h b/js/src/jit/Lowering.h
+index 3d67a2d..edb9d9a 100644
+--- a/js/src/jit/Lowering.h
++++ b/js/src/jit/Lowering.h
+@@ -37,7 +37,7 @@ class LIRGenerator : public LIRGeneratorSpecific
+     // The maximum depth, for framesizeclass determination.
+     uint32_t maxargslots_;
+ 
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     // In debug builds, check MPrepareCall and MCall are properly
+     // nested. The argslots_ mechanism relies on this.
+     Vector<MPrepareCall *, 4, SystemAllocPolicy> prepareCallStack_;
+diff --git a/js/src/jit/MIR.cpp b/js/src/jit/MIR.cpp
+index eea62ff..0c8da1d 100644
+--- a/js/src/jit/MIR.cpp
++++ b/js/src/jit/MIR.cpp
+@@ -644,7 +644,7 @@ MPhi::reserveLength(size_t length)
+     // capacity. This permits use of addInput() instead of addInputSlow(), the
+     // latter of which may call realloc().
+     JS_ASSERT(numOperands() == 0);
+-#if DEBUG
++#if !TOR_NASSERT
+     capacity_ = length;
+ #endif
+     return inputs_.reserve(length);
+@@ -691,7 +691,7 @@ jit::MergeTypes(MIRType *ptype, types::StackTypeSet **ptypeSet,
+ void
+ MPhi::specializeType()
+ {
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     JS_ASSERT(!specialized_);
+     specialized_ = true;
+ #endif
+diff --git a/js/src/jit/MIR.h b/js/src/jit/MIR.h
+index e9bc029..6d6a68a 100644
+--- a/js/src/jit/MIR.h
++++ b/js/src/jit/MIR.h
+@@ -483,7 +483,7 @@ class MDefinition : public MNode
+ 
+     void setVirtualRegister(uint32_t vreg) {
+         virtualRegister_ = vreg;
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+         setLoweredUnchecked();
+ #endif
+     }
+@@ -3601,7 +3601,7 @@ class MPhi : public MDefinition, public InlineForwardListNode<MPhi>
+     bool triedToSpecialize_;
+     bool isIterator_;
+ 
+-#if DEBUG
++#ifndef TOR_NASSERT
+     bool specialized_;
+     uint32_t capacity_;
+ #endif
+@@ -3611,7 +3611,7 @@ class MPhi : public MDefinition, public InlineForwardListNode<MPhi>
+         hasBackedgeType_(false),
+         triedToSpecialize_(false),
+         isIterator_(false)
+-#if DEBUG
++#ifndef TOR_NASSERT
+         , specialized_(false)
+         , capacity_(0)
+ #endif
+diff --git a/js/src/jit/arm/Assembler-arm.cpp b/js/src/jit/arm/Assembler-arm.cpp
+index 57a3aa2..e47c3d3 100644
+--- a/js/src/jit/arm/Assembler-arm.cpp
++++ b/js/src/jit/arm/Assembler-arm.cpp
+@@ -4,7 +4,7 @@
+  * License, v. 2.0. If a copy of the MPL was not distributed with this
+  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+ 
+-#include "mozilla/DebugOnly.h"
++#include "mozilla/DebugOnlyTor.h"
+ 
+ #include "Assembler-arm.h"
+ #include "MacroAssembler-arm.h"
+@@ -2312,7 +2312,7 @@ Assembler::retarget(Label *label, Label *target)
+         } else {
+             // The target is unbound and unused.  We can just take the head of
+             // the list hanging off of label, and dump that into target.
+-            DebugOnly<uint32_t> prev = target->use(label->offset());
++            DebugOnlyTor<uint32_t> prev = target->use(label->offset());
+             JS_ASSERT((int32_t)prev == Label::INVALID_OFFSET);
+         }
+     }
+@@ -2651,7 +2651,7 @@ Assembler::ToggleToJmp(CodeLocationLabel inst_)
+ {
+     uint32_t *ptr = (uint32_t *)inst_.raw();
+ 
+-    DebugOnly<Instruction *> inst = (Instruction *)inst_.raw();
++    DebugOnlyTor<Instruction *> inst = (Instruction *)inst_.raw();
+     JS_ASSERT(inst->is<InstCMP>());
+ 
+     // Zero bits 20-27, then set 24-27 to be correct for a branch.
+@@ -2665,7 +2665,7 @@ Assembler::ToggleToCmp(CodeLocationLabel inst_)
+ {
+     uint32_t *ptr = (uint32_t *)inst_.raw();
+ 
+-    DebugOnly<Instruction *> inst = (Instruction *)inst_.raw();
++    DebugOnlyTor<Instruction *> inst = (Instruction *)inst_.raw();
+     JS_ASSERT(inst->is<InstBImm>());
+ 
+     // Ensure that this masking operation doesn't affect the offset of the
+diff --git a/js/src/jit/arm/MacroAssembler-arm.cpp b/js/src/jit/arm/MacroAssembler-arm.cpp
+index b7a3167..a030f54 100644
+--- a/js/src/jit/arm/MacroAssembler-arm.cpp
++++ b/js/src/jit/arm/MacroAssembler-arm.cpp
+@@ -4,7 +4,7 @@
+  * License, v. 2.0. If a copy of the MPL was not distributed with this
+  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+ 
+-#include "mozilla/DebugOnly.h"
++#include "mozilla/DebugOnlyTor.h"
+ #include "mozilla/MathAlgorithms.h"
+ 
+ #include "jit/arm/MacroAssembler-arm.h"
+@@ -930,7 +930,7 @@ MacroAssemblerARM::ma_str(Register rt, const Operand &addr, Index mode, Conditio
+     ma_dtr(IsStore, rt, addr, mode, cc);
+ }
+ void
+-MacroAssemblerARM::ma_strd(Register rt, DebugOnly<Register> rt2, EDtrAddr addr, Index mode, Condition cc)
++MacroAssemblerARM::ma_strd(Register rt, DebugOnlyTor<Register> rt2, EDtrAddr addr, Index mode, Condition cc)
+ {
+     JS_ASSERT((rt.code() & 1) == 0);
+     JS_ASSERT(rt2.value.code() == rt.code() + 1);
+@@ -971,7 +971,7 @@ MacroAssemblerARM::ma_ldrsb(EDtrAddr addr, Register rt, Index mode, Condition cc
+     as_extdtr(IsLoad, 8, true, mode, rt, addr, cc);
+ }
+ void
+-MacroAssemblerARM::ma_ldrd(EDtrAddr addr, Register rt, DebugOnly<Register> rt2,
++MacroAssemblerARM::ma_ldrd(EDtrAddr addr, Register rt, DebugOnlyTor<Register> rt2,
+                            Index mode, Condition cc)
+ {
+     JS_ASSERT((rt.code() & 1) == 0);
+@@ -1466,13 +1466,13 @@ MacroAssemblerARM::ma_vstr(VFPRegister src, Register base, Register index, int32
+ bool
+ MacroAssemblerARMCompat::buildFakeExitFrame(const Register &scratch, uint32_t *offset)
+ {
+-    DebugOnly<uint32_t> initialDepth = framePushed();
++    DebugOnlyTor<uint32_t> initialDepth = framePushed();
+     uint32_t descriptor = MakeFrameDescriptor(framePushed(), IonFrame_OptimizedJS);
+ 
+     Push(Imm32(descriptor)); // descriptor_
+ 
+     enterNoPool();
+-    DebugOnly<uint32_t> offsetBeforePush = currentOffset();
++    DebugOnlyTor<uint32_t> offsetBeforePush = currentOffset();
+     Push(pc); // actually pushes $pc + 8.
+ 
+     // Consume an additional 4 bytes. The start of the next instruction will
+@@ -1492,7 +1492,7 @@ MacroAssemblerARMCompat::buildFakeExitFrame(const Register &scratch, uint32_t *o
+ bool
+ MacroAssemblerARMCompat::buildOOLFakeExitFrame(void *fakeReturnAddr)
+ {
+-    DebugOnly<uint32_t> initialDepth = framePushed();
++    DebugOnlyTor<uint32_t> initialDepth = framePushed();
+     uint32_t descriptor = MakeFrameDescriptor(framePushed(), IonFrame_OptimizedJS);
+ 
+     Push(Imm32(descriptor)); // descriptor_
+diff --git a/js/src/jit/arm/MacroAssembler-arm.h b/js/src/jit/arm/MacroAssembler-arm.h
+index 04d68af..1b37eb8 100644
+--- a/js/src/jit/arm/MacroAssembler-arm.h
++++ b/js/src/jit/arm/MacroAssembler-arm.h
+@@ -7,7 +7,7 @@
+ #ifndef jit_arm_MacroAssembler_arm_h
+ #define jit_arm_MacroAssembler_arm_h
+ 
+-#include "mozilla/DebugOnly.h"
++#include "mozilla/DebugOnlyTor.h"
+ 
+ #include "jit/arm/Assembler-arm.h"
+ #include "jit/IonCaches.h"
+@@ -15,7 +15,7 @@
+ #include "jit/MoveResolver.h"
+ #include "jsopcode.h"
+ 
+-using mozilla::DebugOnly;
++using mozilla::DebugOnlyTor;
+ 
+ namespace js {
+ namespace jit {
+@@ -258,10 +258,10 @@ class MacroAssemblerARM : public Assembler
+     void ma_ldrh(EDtrAddr addr, Register rt, Index mode = Offset, Condition cc = Always);
+     void ma_ldrsh(EDtrAddr addr, Register rt, Index mode = Offset, Condition cc = Always);
+     void ma_ldrsb(EDtrAddr addr, Register rt, Index mode = Offset, Condition cc = Always);
+-    void ma_ldrd(EDtrAddr addr, Register rt, DebugOnly<Register> rt2, Index mode = Offset, Condition cc = Always);
++    void ma_ldrd(EDtrAddr addr, Register rt, DebugOnlyTor<Register> rt2, Index mode = Offset, Condition cc = Always);
+     void ma_strb(Register rt, DTRAddr addr, Index mode = Offset, Condition cc = Always);
+     void ma_strh(Register rt, EDtrAddr addr, Index mode = Offset, Condition cc = Always);
+-    void ma_strd(Register rt, DebugOnly<Register> rt2, EDtrAddr addr, Index mode = Offset, Condition cc = Always);
++    void ma_strd(Register rt, DebugOnlyTor<Register> rt2, EDtrAddr addr, Index mode = Offset, Condition cc = Always);
+     // specialty for moving N bits of data, where n == 8,16,32,64
+     BufferOffset ma_dataTransferN(LoadStore ls, int size, bool IsSigned,
+                           Register rn, Register rm, Register rt,
+diff --git a/js/src/jit/shared/Assembler-shared.h b/js/src/jit/shared/Assembler-shared.h
+index fc253d8..e3ec5ec6 100644
+--- a/js/src/jit/shared/Assembler-shared.h
++++ b/js/src/jit/shared/Assembler-shared.h
+@@ -9,7 +9,7 @@
+ 
+ #include <limits.h>
+ 
+-#include "mozilla/DebugOnly.h"
++#include "mozilla/DebugOnlyTor.h"
+ #include "mozilla/PodOperations.h"
+ 
+ #include "jit/IonAllocPolicy.h"
+@@ -205,7 +205,7 @@ struct LabelBase
+     void operator =(const LabelBase &label);
+     static int id_count;
+   public:
+-    mozilla::DebugOnly <int> id;
++    mozilla::DebugOnlyTor <int> id;
+     static const int32_t INVALID_OFFSET = -1;
+ 
+     LabelBase() : offset_(INVALID_OFFSET), bound_(false), id(id_count++)
+@@ -434,7 +434,7 @@ class CodeOffsetLabel
+ class CodeLocationJump
+ {
+     uint8_t *raw_;
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     bool absolute_;
+     void setAbsolute() {
+         absolute_ = true;
+@@ -500,7 +500,7 @@ class CodeLocationJump
+ class CodeLocationLabel
+ {
+     uint8_t *raw_;
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     bool absolute_;
+     void setAbsolute() {
+         absolute_ = true;
+diff --git a/js/src/jit/shared/CodeGenerator-x86-shared.cpp b/js/src/jit/shared/CodeGenerator-x86-shared.cpp
+index 363ce8a..87e7e81 100644
+--- a/js/src/jit/shared/CodeGenerator-x86-shared.cpp
++++ b/js/src/jit/shared/CodeGenerator-x86-shared.cpp
+@@ -4,7 +4,7 @@
+  * License, v. 2.0. If a copy of the MPL was not distributed with this
+  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+ 
+-#include "mozilla/DebugOnly.h"
++#include "mozilla/DebugOnlyTor.h"
+ 
+ #include "jscntxt.h"
+ #include "jscompartment.h"
+@@ -519,7 +519,7 @@ CodeGeneratorX86Shared::visitOutOfLineUndoALUOperation(OutOfLineUndoALUOperation
+     LInstruction *ins = ool->ins();
+     Register reg = ToRegister(ins->getDef(0));
+ 
+-    mozilla::DebugOnly<LAllocation *> lhs = ins->getOperand(0);
++    mozilla::DebugOnlyTor<LAllocation *> lhs = ins->getOperand(0);
+     LAllocation *rhs = ins->getOperand(1);
+ 
+     JS_ASSERT(reg == ToRegister(lhs));
+@@ -684,7 +684,7 @@ CodeGeneratorX86Shared::visitDivPowTwoI(LDivPowTwoI *ins)
+ {
+     Register lhs = ToRegister(ins->numerator());
+     Register lhsCopy = ToRegister(ins->numeratorCopy());
+-    mozilla::DebugOnly<Register> output = ToRegister(ins->output());
++    mozilla::DebugOnlyTor<Register> output = ToRegister(ins->output());
+     int32_t shift = ins->shift();
+ 
+     // We use defineReuseInput so these should always be the same, which is
+diff --git a/js/src/jit/shared/MacroAssembler-x86-shared.h b/js/src/jit/shared/MacroAssembler-x86-shared.h
+index 6d537f8..8ef0794 100644
+--- a/js/src/jit/shared/MacroAssembler-x86-shared.h
++++ b/js/src/jit/shared/MacroAssembler-x86-shared.h
+@@ -7,7 +7,7 @@
+ #ifndef jit_shared_MacroAssembler_x86_shared_h
+ #define jit_shared_MacroAssembler_x86_shared_h
+ 
+-#include "mozilla/DebugOnly.h"
++#include "mozilla/DebugOnlyTor.h"
+ 
+ #ifdef JS_CPU_X86
+ # include "jit/x86/Assembler-x86.h"
+@@ -455,7 +455,7 @@ class MacroAssemblerX86Shared : public Assembler
+     // Builds an exit frame on the stack, with a return address to an internal
+     // non-function. Returns offset to be passed to markSafepointAt().
+     bool buildFakeExitFrame(const Register &scratch, uint32_t *offset) {
+-        mozilla::DebugOnly<uint32_t> initialDepth = framePushed();
++        mozilla::DebugOnlyTor<uint32_t> initialDepth = framePushed();
+ 
+         CodeLabel cl;
+         mov(cl.dest(), scratch);
+diff --git a/js/src/jit/x64/Assembler-x64.cpp b/js/src/jit/x64/Assembler-x64.cpp
+index e4f253b..3b641f3 100644
+--- a/js/src/jit/x64/Assembler-x64.cpp
++++ b/js/src/jit/x64/Assembler-x64.cpp
+@@ -158,7 +158,7 @@ Assembler::finish()
+ 
+     // Zero the extended jumps table.
+     for (size_t i = 0; i < jumps_.length(); i++) {
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+         size_t oldSize = masm.size();
+ #endif
+         masm.jmp_rip(0);
+diff --git a/js/src/jit/x86/CodeGenerator-x86.cpp b/js/src/jit/x86/CodeGenerator-x86.cpp
+index bc4f736..7f93a89 100644
+--- a/js/src/jit/x86/CodeGenerator-x86.cpp
++++ b/js/src/jit/x86/CodeGenerator-x86.cpp
+@@ -4,7 +4,7 @@
+  * License, v. 2.0. If a copy of the MPL was not distributed with this
+  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+ 
+-#include "mozilla/DebugOnly.h"
++#include "mozilla/DebugOnlyTor.h"
+ 
+ #include "jsnum.h"
+ 
+@@ -20,7 +20,7 @@
+ using namespace js;
+ using namespace js::jit;
+ 
+-using mozilla::DebugOnly;
++using mozilla::DebugOnlyTor;
+ using mozilla::DoubleExponentBias;
+ using mozilla::DoubleExponentShift;
+ 
+@@ -105,7 +105,7 @@ CodeGeneratorX86::visitBox(LBox *box)
+ {
+     const LDefinition *type = box->getDef(TYPE_INDEX);
+ 
+-    DebugOnly<const LAllocation *> a = box->getOperand(0);
++    DebugOnlyTor<const LAllocation *> a = box->getOperand(0);
+     JS_ASSERT(!a->isConstant());
+ 
+     // On x86, the input operand and the output payload have the same
+diff --git a/js/src/jsanalyze.cpp b/js/src/jsanalyze.cpp
+index b42dd4b..b123334 100644
+--- a/js/src/jsanalyze.cpp
++++ b/js/src/jsanalyze.cpp
+@@ -6,7 +6,7 @@
+ 
+ #include "jsanalyze.h"
+ 
+-#include "mozilla/DebugOnly.h"
++#include "mozilla/DebugOnlyTor.h"
+ #include "mozilla/PodOperations.h"
+ 
+ #include "jscompartment.h"
+@@ -19,7 +19,7 @@
+ using namespace js;
+ using namespace js::analyze;
+ 
+-using mozilla::DebugOnly;
++using mozilla::DebugOnlyTor;
+ using mozilla::PodCopy;
+ using mozilla::PodZero;
+ 
+@@ -655,7 +655,7 @@ ScriptAnalysis::analyzeLifetimes(JSContext *cx)
+             loop->lastBlock = offset;
+ 
+         if (code->exceptionEntry) {
+-            DebugOnly<bool> found = false;
++            DebugOnlyTor<bool> found = false;
+             JSTryNote *tn = script_->trynotes()->vector;
+             JSTryNote *tnlimit = tn + script_->trynotes()->length;
+             for (; tn < tnlimit; tn++) {
+diff --git a/js/src/jsapi.cpp b/js/src/jsapi.cpp
+index 3632a74..b91f07c 100644
+--- a/js/src/jsapi.cpp
++++ b/js/src/jsapi.cpp
+@@ -1059,7 +1059,7 @@ JSRuntime::abortIfWrongThread() const
+         MOZ_CRASH();
+ }
+ 
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+ JS_FRIEND_API(void)
+ JSRuntime::assertValidThread() const
+ {
+diff --git a/js/src/jsarray.cpp b/js/src/jsarray.cpp
+index 12bb291..90dccd6 100644
+--- a/js/src/jsarray.cpp
++++ b/js/src/jsarray.cpp
+@@ -6,7 +6,7 @@
+ 
+ #include "jsarray.h"
+ 
+-#include "mozilla/DebugOnly.h"
++#include "mozilla/DebugOnlyTor.h"
+ #include "mozilla/FloatingPoint.h"
+ #include "mozilla/MathAlgorithms.h"
+ #include "mozilla/Util.h"
+@@ -43,7 +43,7 @@ using namespace js::types;
+ 
+ using mozilla::Abs;
+ using mozilla::ArrayLength;
+-using mozilla::DebugOnly;
++using mozilla::DebugOnlyTor;
+ using mozilla::IsNaN;
+ using mozilla::PointerRangeSize;
+ 
+@@ -2851,7 +2851,7 @@ EnsureNewArrayElements(JSContext *cx, JSObject *obj, uint32_t length)
+      * If ensureElements creates dynamically allocated slots, then having
+      * fixedSlots is a waste.
+      */
+-    DebugOnly<uint32_t> cap = obj->getDenseCapacity();
++    DebugOnlyTor<uint32_t> cap = obj->getDenseCapacity();
+ 
+     if (!obj->ensureElements(cx, length))
+         return false;
+diff --git a/js/src/jsboolinlines.h b/js/src/jsboolinlines.h
+index b85d7ea..c622ac9 100644
+--- a/js/src/jsboolinlines.h
++++ b/js/src/jsboolinlines.h
+@@ -7,7 +7,7 @@
+ #ifndef jsboolinlines_h
+ #define jsboolinlines_h
+ 
+-#include "mozilla/Assertions.h"
++#include "mozilla/AssertionsTor.h"
+ #include "mozilla/Likely.h"
+ 
+ #include "js/RootingAPI.h"
+@@ -33,7 +33,7 @@ EmulatesUndefined(JSObject *obj)
+ {
+     JSObject *actual = MOZ_LIKELY(!obj->isWrapper()) ? obj : UncheckedUnwrap(obj);
+     bool emulatesUndefined = actual->getClass()->emulatesUndefined();
+-    MOZ_ASSERT_IF(emulatesUndefined, obj->type()->flags & types::OBJECT_FLAG_EMULATES_UNDEFINED);
++    TBB_MOZ_ASSERT_IF(emulatesUndefined, obj->type()->flags & types::OBJECT_FLAG_EMULATES_UNDEFINED);
+     return emulatesUndefined;
+ }
+ 
+diff --git a/js/src/jscntxt.cpp b/js/src/jscntxt.cpp
+index 9e16009f..8e6bd31 100644
+--- a/js/src/jscntxt.cpp
++++ b/js/src/jscntxt.cpp
+@@ -14,7 +14,7 @@
+ #include <stdarg.h>
+ #include <string.h>
+ 
+-#include "mozilla/DebugOnly.h"
++#include "mozilla/DebugOnlyTor.h"
+ 
+ #ifdef ANDROID
+ # include <android/log.h>
+@@ -56,7 +56,7 @@
+ using namespace js;
+ using namespace js::gc;
+ 
+-using mozilla::DebugOnly;
++using mozilla::DebugOnlyTor;
+ using mozilla::PodArrayZero;
+ using mozilla::PodZero;
+ using mozilla::PointerRangeSize;
+@@ -616,7 +616,7 @@ js::ReportUsageError(JSContext *cx, HandleObject callee, const char *msg)
+     const char *usageStr = "usage";
+     PropertyName *usageAtom = Atomize(cx, usageStr, strlen(usageStr))->asPropertyName();
+     RootedId id(cx, NameToId(usageAtom));
+-    DebugOnly<Shape *> shape = static_cast<Shape *>(callee->nativeLookup(cx, id));
++    DebugOnlyTor<Shape *> shape = static_cast<Shape *>(callee->nativeLookup(cx, id));
+     JS_ASSERT(!shape->configurable());
+     JS_ASSERT(!shape->writable());
+     JS_ASSERT(shape->hasDefaultGetter());
+diff --git a/js/src/jscntxt.h b/js/src/jscntxt.h
+index b7aa4b8..8c992c9 100644
+--- a/js/src/jscntxt.h
++++ b/js/src/jscntxt.h
+@@ -676,7 +676,7 @@ struct JSRuntime : public JS::shadow::Runtime,
+      * Protects all data that is touched in this process.
+      */
+     PRLock *operationCallbackLock;
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     PRThread *operationCallbackOwner;
+ #endif
+   public:
+@@ -689,13 +689,13 @@ struct JSRuntime : public JS::shadow::Runtime,
+         AutoLockForOperationCallback(JSRuntime *rt MOZ_GUARD_OBJECT_NOTIFIER_PARAM) : rt(rt) {
+             MOZ_GUARD_OBJECT_NOTIFIER_INIT;
+             PR_Lock(rt->operationCallbackLock);
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+             rt->operationCallbackOwner = PR_GetCurrentThread();
+ #endif
+         }
+         ~AutoLockForOperationCallback() {
+             JS_ASSERT(rt->operationCallbackOwner == PR_GetCurrentThread());
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+             rt->operationCallbackOwner = NULL;
+ #endif
+             PR_Unlock(rt->operationCallbackLock);
+@@ -711,7 +711,7 @@ struct JSRuntime : public JS::shadow::Runtime,
+     };
+ 
+     bool currentThreadOwnsOperationCallbackLock() {
+-#if defined(JS_THREADSAFE) && defined(DEBUG)
++#if defined(JS_THREADSAFE) && !defined(TOR_NASSERT)
+         return operationCallbackOwner == PR_GetCurrentThread();
+ #else
+         return true;
+@@ -746,7 +746,7 @@ struct JSRuntime : public JS::shadow::Runtime,
+     void clearOwnerThread();
+     void setOwnerThread();
+     JS_FRIEND_API(void) abortIfWrongThread() const;
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     JS_FRIEND_API(void) assertValidThread() const;
+ #else
+     void assertValidThread() const {}
+@@ -893,7 +893,7 @@ struct JSRuntime : public JS::shadow::Runtime,
+     /* The request depth for this thread. */
+     unsigned            requestDepth;
+ 
+-# ifdef DEBUG
++#ifndef TOR_NASSERT
+     unsigned            checkRequestDepth;
+ # endif
+ #endif
+@@ -989,7 +989,7 @@ struct JSRuntime : public JS::shadow::Runtime,
+      */
+     bool                gcStrictCompartmentChecking;
+ 
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     /*
+      * If this is 0, all cross-compartment proxies must be registered in the
+      * wrapper map. This checking must be disabled temporarily while creating
+@@ -1037,7 +1037,7 @@ struct JSRuntime : public JS::shadow::Runtime,
+      */
+     js::gc::ArenaHeader *gcArenasAllocatedDuringSweep;
+ 
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     js::gc::MarkingValidator *gcMarkingValidator;
+ #endif
+ 
+@@ -1367,7 +1367,7 @@ struct JSRuntime : public JS::shadow::Runtime,
+ 
+     js::ScriptDataTable scriptDataTable;
+ 
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     size_t              noGCOrAllocationCheck;
+ #endif
+ 
+@@ -1505,7 +1505,7 @@ struct JSRuntime : public JS::shadow::Runtime,
+ #endif
+     }
+ 
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+   public:
+     js::AutoEnterPolicy *enteredPolicy;
+ #endif
+@@ -1718,7 +1718,7 @@ struct JSContext : js::ThreadSafeContext,
+     bool hasEnteredCompartment() const {
+         return enterCompartmentDepth_ > 0;
+     }
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     unsigned getEnterCompartmentDepth() const {
+         return enterCompartmentDepth_;
+     }
+@@ -1906,7 +1906,7 @@ struct JSContext : js::ThreadSafeContext,
+ 
+     JSAtomState & names() { return runtime()->atomState; }
+ 
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     /*
+      * Controls whether a quadratic-complexity assertion is performed during
+      * stack iteration; defaults to true.
+@@ -2420,14 +2420,14 @@ class AutoObjectHashSet : public AutoHashSetRooter<JSObject *>
+ 
+ class AutoAssertNoException
+ {
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     JSContext *cx;
+     bool hadException;
+ #endif
+ 
+   public:
+     AutoAssertNoException(JSContext *cx)
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+       : cx(cx),
+         hadException(cx->isExceptionPending())
+ #endif
+@@ -2497,7 +2497,7 @@ JSBool intrinsic_HaveSameClass(JSContext *cx, unsigned argc, Value *vp);
+ JSBool intrinsic_ShouldForceSequential(JSContext *cx, unsigned argc, Value *vp);
+ JSBool intrinsic_NewParallelArray(JSContext *cx, unsigned argc, Value *vp);
+ 
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+ JSBool intrinsic_Dump(JSContext *cx, unsigned argc, Value *vp);
+ #endif
+ 
+diff --git a/js/src/jscntxtinlines.h b/js/src/jscntxtinlines.h
+index 2838b60..b09ed88 100644
+--- a/js/src/jscntxtinlines.h
++++ b/js/src/jscntxtinlines.h
+@@ -314,7 +314,7 @@ CallJSNative(JSContext *cx, Native native, const CallArgs &args)
+ {
+     JS_CHECK_RECURSION(cx, return false);
+ 
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     bool alreadyThrowing = cx->isExceptionPending();
+ #endif
+     assertSameCompartment(cx, args);
+@@ -330,7 +330,7 @@ STATIC_PRECONDITION_ASSUME(ubound(args.argv_) >= argc)
+ JS_ALWAYS_INLINE bool
+ CallNativeImpl(JSContext *cx, NativeImpl impl, const CallArgs &args)
+ {
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     bool alreadyThrowing = cx->isExceptionPending();
+ #endif
+     assertSameCompartment(cx, args);
+@@ -346,7 +346,7 @@ STATIC_PRECONDITION(ubound(args.argv_) >= argc)
+ JS_ALWAYS_INLINE bool
+ CallJSNativeConstructor(JSContext *cx, Native native, const CallArgs &args)
+ {
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     RootedObject callee(cx, &args.callee());
+ #endif
+ 
+diff --git a/js/src/jscompartment.cpp b/js/src/jscompartment.cpp
+index c448e10..1a668ef 100644
+--- a/js/src/jscompartment.cpp
++++ b/js/src/jscompartment.cpp
+@@ -6,7 +6,7 @@
+ 
+ #include "jscompartment.h"
+ 
+-#include "mozilla/DebugOnly.h"
++#include "mozilla/DebugOnlyTor.h"
+ 
+ #include "jscntxt.h"
+ #include "jsgc.h"
+@@ -30,7 +30,7 @@
+ using namespace js;
+ using namespace js::gc;
+ 
+-using mozilla::DebugOnly;
++using mozilla::DebugOnlyTor;
+ 
+ JSCompartment::JSCompartment(Zone *zone, const JS::CompartmentOptions &options = JS::CompartmentOptions())
+   : zone_(zone),
+@@ -270,7 +270,7 @@ JSCompartment::wrap(JSContext *cx, MutableHandleValue vp, HandleObject existingA
+     if (WrapperMap::Ptr p = crossCompartmentWrappers.lookup(key)) {
+         vp.set(p->value);
+         if (vp.isObject()) {
+-            DebugOnly<JSObject *> obj = &vp.toObject();
++            DebugOnlyTor<JSObject *> obj = &vp.toObject();
+             JS_ASSERT(obj->isCrossCompartmentWrapper());
+             JS_ASSERT(obj->getParent() == global);
+         }
+diff --git a/js/src/jsgc.cpp b/js/src/jsgc.cpp
+index 53a636e..8a8496f 100644
+--- a/js/src/jsgc.cpp
++++ b/js/src/jsgc.cpp
+@@ -10,7 +10,7 @@
+ 
+ #include "prmjtime.h"
+ 
+-#include "mozilla/DebugOnly.h"
++#include "mozilla/DebugOnlyTor.h"
+ #include "mozilla/Util.h"
+ 
+ /*
+@@ -89,7 +89,7 @@ using namespace js;
+ using namespace js::gc;
+ 
+ using mozilla::ArrayEnd;
+-using mozilla::DebugOnly;
++using mozilla::DebugOnlyTor;
+ using mozilla::Maybe;
+ 
+ /* Perform a Full GC every 20 seconds if MaybeGC is called */
+@@ -300,7 +300,7 @@ Arena::finalize(FreeOp *fop, AllocKind thingKind, size_t thingSize)
+     FreeSpan *newListTail = &newListHead;
+     uintptr_t newFreeSpanStart = 0;
+     bool allClear = true;
+-    DebugOnly<size_t> nmarked = 0;
++    DebugOnlyTor<size_t> nmarked = 0;
+     for (;; thing += thingSize) {
+         JS_ASSERT(thing <= lastByte + 1);
+         if (thing == nextFree.first) {
+@@ -612,7 +612,7 @@ Chunk::prepareToBeFreed(JSRuntime *rt)
+     rt->gcNumArenasFreeCommitted -= info.numArenasFreeCommitted;
+     rt->gcStats.count(gcstats::STAT_DESTROY_CHUNK);
+ 
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     /*
+      * Let FreeChunkList detect a missing prepareToBeFreed call before it
+      * frees chunk.
+@@ -1774,7 +1774,7 @@ void
+ GCMarker::checkZone(void *p)
+ {
+     JS_ASSERT(started);
+-    DebugOnly<Cell *> cell = static_cast<Cell *>(p);
++    DebugOnlyTor<Cell *> cell = static_cast<Cell *>(p);
+     JS_ASSERT_IF(cell->isTenured(), cell->tenuredZone()->isCollecting());
+ }
+ #endif
+diff --git a/js/src/jsgc.h b/js/src/jsgc.h
+index 4bf5c2f..92eb1a4 100644
+--- a/js/src/jsgc.h
++++ b/js/src/jsgc.h
+@@ -9,7 +9,7 @@
+ #ifndef jsgc_h
+ #define jsgc_h
+ 
+-#include "mozilla/DebugOnly.h"
++#include "mozilla/DebugOnlyTor.h"
+ #include "mozilla/Util.h"
+ 
+ #include "jsalloc.h"
+@@ -1138,12 +1138,12 @@ struct GCMarker : public JSTracer {
+     /* The color is only applied to objects and functions. */
+     uint32_t color;
+ 
+-    mozilla::DebugOnly<bool> started;
++    mozilla::DebugOnlyTor<bool> started;
+ 
+     /* Pointer to the top of the stack of arenas we are delaying marking on. */
+     js::gc::ArenaHeader *unmarkedArenaStackTop;
+     /* Count of arenas that are currently in the stack. */
+-    mozilla::DebugOnly<size_t> markLaterArenas;
++    mozilla::DebugOnlyTor<size_t> markLaterArenas;
+ 
+     bool grayFailed;
+ };
+diff --git a/js/src/jsgcinlines.h b/js/src/jsgcinlines.h
+index 7e95862..e2880ea 100644
+--- a/js/src/jsgcinlines.h
++++ b/js/src/jsgcinlines.h
+@@ -361,7 +361,7 @@ class CellIter : public CellIterImpl
+ {
+     ArenaLists *lists;
+     AllocKind kind;
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     size_t *counter;
+ #endif
+   public:
+@@ -386,7 +386,7 @@ class CellIter : public CellIterImpl
+             JS_ASSERT(!zone->rt->isHeapBusy());
+             lists->copyFreeListToArena(kind);
+         }
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+         counter = &zone->rt->noGCOrAllocationCheck;
+         ++*counter;
+ #endif
+@@ -394,7 +394,7 @@ class CellIter : public CellIterImpl
+     }
+ 
+     ~CellIter() {
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+         JS_ASSERT(*counter > 0);
+         --*counter;
+ #endif
+diff --git a/js/src/jsinfer.cpp b/js/src/jsinfer.cpp
+index e961f11..bd4850b 100644
+--- a/js/src/jsinfer.cpp
++++ b/js/src/jsinfer.cpp
+@@ -6,7 +6,7 @@
+ 
+ #include "jsinfer.h"
+ 
+-#include "mozilla/DebugOnly.h"
++#include "mozilla/DebugOnlyTor.h"
+ #include "mozilla/PodOperations.h"
+ 
+ #include "jsapi.h"
+@@ -47,7 +47,7 @@ using namespace js::gc;
+ using namespace js::types;
+ using namespace js::analyze;
+ 
+-using mozilla::DebugOnly;
++using mozilla::DebugOnlyTor;
+ using mozilla::PodArrayZero;
+ using mozilla::PodCopy;
+ using mozilla::PodZero;
+@@ -119,7 +119,7 @@ static bool InferSpewActive(SpewChannel channel)
+     return active[channel];
+ }
+ 
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+ 
+ static bool InferSpewColorable()
+ {
+@@ -1768,7 +1768,7 @@ StackTypeSet::getKnownTypeTag()
+      * that the exact tag is unknown, as it will stay unknown as more types are
+      * added to the set.
+      */
+-    DebugOnly<bool> empty = flags == 0 && baseObjectCount() == 0;
++    DebugOnlyTor<bool> empty = flags == 0 && baseObjectCount() == 0;
+     JS_ASSERT_IF(empty, type == JSVAL_TYPE_UNKNOWN);
+ 
+     return type;
+@@ -1795,7 +1795,7 @@ HeapTypeSet::getKnownTypeTag(JSContext *cx)
+      * that the exact tag is unknown, as it will stay unknown as more types are
+      * added to the set.
+      */
+-    DebugOnly<bool> empty = flags == 0 && baseObjectCount() == 0;
++    DebugOnlyTor<bool> empty = flags == 0 && baseObjectCount() == 0;
+     JS_ASSERT_IF(empty, type == JSVAL_TYPE_UNKNOWN);
+ 
+     return type;
+@@ -6003,7 +6003,7 @@ TypeObjectEntry::match(TypeObject *key, const Lookup &lookup)
+     return key->proto == lookup.proto.raw() && key->clasp == lookup.clasp;
+ }
+ 
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+ bool
+ JSObject::hasNewType(Class *clasp, TypeObject *type)
+ {
+diff --git a/js/src/jsinfer.h b/js/src/jsinfer.h
+index 61476d8..8f9f47d 100644
+--- a/js/src/jsinfer.h
++++ b/js/src/jsinfer.h
+@@ -1475,7 +1475,7 @@ enum SpewChannel {
+     SPEW_COUNT
+ };
+ 
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+ 
+ const char * InferSpewColorReset();
+ const char * InferSpewColor(TypeConstraint *constraint);
+diff --git a/js/src/jsinferinlines.h b/js/src/jsinferinlines.h
+index d4c57a1..f3bcb86 100644
+--- a/js/src/jsinferinlines.h
++++ b/js/src/jsinferinlines.h
+@@ -122,7 +122,7 @@ CompilerOutput::isValid() const
+     if (!script)
+         return false;
+ 
+-#if defined(DEBUG) && defined(JS_ION)
++#if !defined(TOR_NASSERT) && defined(JS_ION)
+     TypeCompartment &types = script->compartment()->types;
+ #endif
+ 
+diff --git a/js/src/jsmemorymetrics.cpp b/js/src/jsmemorymetrics.cpp
+index 5851e0c..7291799 100644
+--- a/js/src/jsmemorymetrics.cpp
++++ b/js/src/jsmemorymetrics.cpp
+@@ -6,7 +6,7 @@
+ 
+ #include "js/MemoryMetrics.h"
+ 
+-#include "mozilla/DebugOnly.h"
++#include "mozilla/DebugOnlyTor.h"
+ 
+ #include "jsapi.h"
+ #include "jscntxt.h"
+@@ -21,7 +21,7 @@
+ 
+ #include "jsobjinlines.h"
+ 
+-using mozilla::DebugOnly;
++using mozilla::DebugOnlyTor;
+ 
+ using namespace js;
+ 
+@@ -328,7 +328,7 @@ JS::CollectRuntimeStats(JSRuntime *rt, RuntimeStats *rtStats, ObjectPrivateVisit
+     // Take the "explicit/js/runtime/" measurements.
+     rt->sizeOfIncludingThis(rtStats->mallocSizeOf_, &rtStats->runtime);
+ 
+-    DebugOnly<size_t> totalArenaSize = 0;
++    DebugOnlyTor<size_t> totalArenaSize = 0;
+ 
+     rtStats->gcHeapGcThings = 0;
+     for (size_t i = 0; i < rtStats->zoneStatsVector.length(); i++) {
+@@ -336,7 +336,7 @@ JS::CollectRuntimeStats(JSRuntime *rt, RuntimeStats *rtStats, ObjectPrivateVisit
+ 
+         rtStats->zTotals.add(zStats);
+         rtStats->gcHeapGcThings += zStats.GCHeapThingsSize();
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+         totalArenaSize += zStats.gcHeapArenaAdmin + zStats.gcHeapUnusedGcThings;
+ #endif
+     }
+@@ -348,7 +348,7 @@ JS::CollectRuntimeStats(JSRuntime *rt, RuntimeStats *rtStats, ObjectPrivateVisit
+         rtStats->gcHeapGcThings += cStats.GCHeapThingsSize();
+     }
+ 
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     totalArenaSize += rtStats->gcHeapGcThings;
+     JS_ASSERT(totalArenaSize % gc::ArenaSize == 0);
+ #endif
+diff --git a/js/src/jsobj.h b/js/src/jsobj.h
+index 7e4e534..ebfee18 100644
+--- a/js/src/jsobj.h
++++ b/js/src/jsobj.h
+@@ -417,7 +417,7 @@ class JSObject : public js::ObjectImpl
+ 
+     js::types::TypeObject *getNewType(JSContext *cx, js::Class *clasp, JSFunction *fun = NULL);
+ 
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     bool hasNewType(js::Class *clasp, js::types::TypeObject *newType);
+ #endif
+ 
+diff --git a/js/src/jsonparser.h b/js/src/jsonparser.h
+index ad4823d..8f1c691 100644
+--- a/js/src/jsonparser.h
++++ b/js/src/jsonparser.h
+@@ -100,7 +100,7 @@ class MOZ_STACK_CLASS JSONParser : private AutoGCRooter
+     Vector<ElementVector*, 5> freeElements;
+     Vector<PropertyVector*, 5> freeProperties;
+ 
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     Token lastToken;
+ #endif
+ 
+@@ -120,7 +120,7 @@ class MOZ_STACK_CLASS JSONParser : private AutoGCRooter
+         stack(cx),
+         freeElements(cx),
+         freeProperties(cx)
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+       , lastToken(Error)
+ #endif
+     {
+@@ -162,7 +162,7 @@ class MOZ_STACK_CLASS JSONParser : private AutoGCRooter
+     Token token(Token t) {
+         JS_ASSERT(t != String);
+         JS_ASSERT(t != Number);
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+         lastToken = t;
+ #endif
+         return t;
+@@ -170,7 +170,7 @@ class MOZ_STACK_CLASS JSONParser : private AutoGCRooter
+ 
+     Token stringToken(JSString *str) {
+         this->v = StringValue(str);
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+         lastToken = String;
+ #endif
+         return String;
+@@ -178,7 +178,7 @@ class MOZ_STACK_CLASS JSONParser : private AutoGCRooter
+ 
+     Token numberToken(double d) {
+         this->v = NumberValue(d);
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+         lastToken = Number;
+ #endif
+         return Number;
+diff --git a/js/src/jsopcode.cpp b/js/src/jsopcode.cpp
+index facb4cf..313735a 100644
+--- a/js/src/jsopcode.cpp
++++ b/js/src/jsopcode.cpp
+@@ -735,7 +735,7 @@ Sprinter::realloc_(size_t newSize)
+ 
+ Sprinter::Sprinter(JSContext *cx)
+   : context(cx),
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     initialized(false),
+ #endif
+     base(NULL), size(0), offset(0), reportedOOM(false)
+@@ -743,7 +743,7 @@ Sprinter::Sprinter(JSContext *cx)
+ 
+ Sprinter::~Sprinter()
+ {
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     if (initialized)
+         checkInvariants();
+ #endif
+@@ -757,7 +757,7 @@ Sprinter::init()
+     base = (char *) context->malloc_(DefaultSize);
+     if (!base)
+         return false;
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     initialized = true;
+ #endif
+     *base = 0;
+diff --git a/js/src/jsopcode.h b/js/src/jsopcode.h
+index 77f5141..aa4be3b 100644
+--- a/js/src/jsopcode.h
++++ b/js/src/jsopcode.h
+@@ -316,7 +316,7 @@ class Sprinter
+ 
+   private:
+     static const size_t     DefaultSize;
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     bool                    initialized;    /* true if this is initialized, use for debug builds */
+ #endif
+     char                    *base;          /* malloc'd buffer address */
+@@ -529,7 +529,7 @@ class PCCounts
+ {
+     friend class ::JSScript;
+     double *counts;
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     size_t capacity;
+ #elif JS_BITS_PER_WORD == 32
+     void *padding;
+diff --git a/js/src/jsreflect.cpp b/js/src/jsreflect.cpp
+index 59f6b89..cb29ecb 100644
+--- a/js/src/jsreflect.cpp
++++ b/js/src/jsreflect.cpp
+@@ -10,7 +10,7 @@
+ 
+ #include <stdlib.h>
+ 
+-#include "mozilla/DebugOnly.h"
++#include "mozilla/DebugOnlyTor.h"
+ #include "mozilla/Util.h"
+ 
+ #include "jspubtd.h"
+@@ -30,7 +30,7 @@ using namespace js;
+ using namespace js::frontend;
+ 
+ using mozilla::ArrayLength;
+-using mozilla::DebugOnly;
++using mozilla::DebugOnlyTor;
+ 
+ char const * const js::aopNames[] = {
+     "=",    /* AOP_ASSIGN */
+@@ -1480,7 +1480,7 @@ class ASTSerializer
+     JSContext           *cx;
+     Parser<FullParseHandler> *parser;
+     NodeBuilder         builder;
+-    DebugOnly<uint32_t> lineno;
++    DebugOnlyTor<uint32_t> lineno;
+ 
+     Value unrootedAtomContents(JSAtom *atom) {
+         return StringValue(atom ? atom : cx->names().empty);
+diff --git a/js/src/jsscript.h b/js/src/jsscript.h
+index 9b4c5c1..8d00773 100644
+--- a/js/src/jsscript.h
++++ b/js/src/jsscript.h
+@@ -470,7 +470,7 @@ class JSScript : public js::gc::Cell
+                                  * or has had backedges taken. Reset if the
+                                  * script's JIT code is forcibly discarded. */
+ 
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     // Unique identifier within the compartment for this script, used for
+     // printing analysis information.
+     uint32_t        id_;
+@@ -762,7 +762,7 @@ class JSScript : public js::gc::Cell
+     /* Return whether this script was compiled for 'eval' */
+     bool isForEval() { return isCachedEval || isActiveEval; }
+ 
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     unsigned id();
+ #else
+     unsigned id() { return 0; }
+diff --git a/js/src/jstypedarray.cpp b/js/src/jstypedarray.cpp
+index 9d02d06..b85e768 100644
+--- a/js/src/jstypedarray.cpp
++++ b/js/src/jstypedarray.cpp
+@@ -738,7 +738,7 @@ ArrayBufferObject::obj_trace(JSTracer *trc, JSObject *obj)
+                 SetBufferLink(firstView, *bufList);
+                 *bufList = obj;
+             } else {
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+                 bool found = false;
+                 for (JSObject *p = obj->compartment()->gcLiveArrayBuffers; p; p = BufferLink(p)) {
+                     if (p == obj)
+@@ -1808,7 +1808,7 @@ class TypedArrayTemplate
+             return NULL;
+         obj->setLastPropertyInfallible(empty);
+ 
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+         uint32_t bufferByteLength = buffer->byteLength();
+         uint32_t arrayByteLength = static_cast<uint32_t>(byteLengthValue(obj).toInt32());
+         uint32_t arrayByteOffset = static_cast<uint32_t>(byteOffsetValue(obj).toInt32());
+@@ -2045,7 +2045,7 @@ class TypedArrayTemplate
+         uint32_t byteSrc = srcBegin * sizeof(NativeType);
+         uint32_t byteSize = nelts * sizeof(NativeType);
+ 
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+         uint32_t viewByteLength = byteLengthValue(tarray).toInt32();
+         JS_ASSERT(byteDest <= viewByteLength);
+         JS_ASSERT(byteSrc <= viewByteLength);
+@@ -2369,7 +2369,7 @@ class TypedArrayTemplate
+         SkipRoot skipDest(cx, &dest);
+         SkipRoot skipSrc(cx, &src);
+ 
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+         JSRuntime *runtime = cx->runtime();
+         uint64_t gcNumber = runtime->gcNumber;
+ #endif
+diff --git a/js/src/jsutil.cpp b/js/src/jsutil.cpp
+index bcab124..e29d3fb 100644
+--- a/js/src/jsutil.cpp
++++ b/js/src/jsutil.cpp
+@@ -8,7 +8,7 @@
+ 
+ #include "jsutil.h"
+ 
+-#include "mozilla/Assertions.h"
++#include "mozilla/AssertionsTor.h"
+ #include "mozilla/PodOperations.h"
+ 
+ #include <stdio.h>
+@@ -154,8 +154,8 @@ JS_STATIC_ASSERT(sizeof(void *) == sizeof(void (*)()));
+ JS_PUBLIC_API(void)
+ JS_Assert(const char *s, const char *file, int ln)
+ {
+-    MOZ_ReportAssertionFailure(s, file, ln);
+-    MOZ_CRASH();
++    TBB_MOZ_ReportAssertionFailure(s, file, ln);
++    TBB_MOZ_CRASH();
+ }
+ 
+ #ifdef JS_BASIC_STATS
+diff --git a/js/src/jsworkers.cpp b/js/src/jsworkers.cpp
+index 57b16ea..277534b 100644
+--- a/js/src/jsworkers.cpp
++++ b/js/src/jsworkers.cpp
+@@ -6,7 +6,7 @@
+ 
+ #include "jsworkers.h"
+ 
+-#include "mozilla/DebugOnly.h"
++#include "mozilla/DebugOnlyTor.h"
+ 
+ #include "prmjtime.h"
+ 
+@@ -18,7 +18,7 @@
+ 
+ using namespace js;
+ 
+-using mozilla::DebugOnly;
++using mozilla::DebugOnlyTor;
+ 
+ #ifdef JS_PARALLEL_COMPILATION
+ 
+@@ -230,7 +230,7 @@ WorkerThreadState::lock()
+ {
+     JS_ASSERT(!isLocked());
+     PR_Lock(workerLock);
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     lockOwner = PR_GetCurrentThread();
+ #endif
+ }
+@@ -239,13 +239,13 @@ void
+ WorkerThreadState::unlock()
+ {
+     JS_ASSERT(isLocked());
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     lockOwner = NULL;
+ #endif
+     PR_Unlock(workerLock);
+ }
+ 
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+ bool
+ WorkerThreadState::isLocked()
+ {
+@@ -257,14 +257,14 @@ void
+ WorkerThreadState::wait(CondVar which, uint32_t millis)
+ {
+     JS_ASSERT(isLocked());
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     lockOwner = NULL;
+ #endif
+-    DebugOnly<PRStatus> status =
++    DebugOnlyTor<PRStatus> status =
+         PR_WaitCondVar((which == MAIN) ? mainWakeup : helperWakeup,
+                        millis ? PR_MillisecondsToInterval(millis) : PR_INTERVAL_NO_TIMEOUT);
+     JS_ASSERT(status == PR_SUCCESS);
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     lockOwner = PR_GetCurrentThread();
+ #endif
+ }
+@@ -389,7 +389,7 @@ WorkerThread::handleIonWorkload(WorkerThreadState &state)
+ 
+     ionBuilder = state.ionWorklist.popCopy();
+ 
+-    DebugOnly<jit::ExecutionMode> executionMode = ionBuilder->info().executionMode();
++    DebugOnlyTor<jit::ExecutionMode> executionMode = ionBuilder->info().executionMode();
+     JS_ASSERT(GetIonScript(ionBuilder->script(), executionMode) == ION_COMPILING_SCRIPT);
+ 
+     state.unlock();
+diff --git a/js/src/jsworkers.h b/js/src/jsworkers.h
+index f29aa81..c4ae0b9 100644
+--- a/js/src/jsworkers.h
++++ b/js/src/jsworkers.h
+@@ -69,7 +69,7 @@ class WorkerThreadState
+     void lock();
+     void unlock();
+ 
+-# ifdef DEBUG
++#ifndef TOR_NASSERT
+     bool isLocked();
+ # endif
+ 
+@@ -112,7 +112,7 @@ class WorkerThreadState
+      */
+     PRLock *workerLock;
+ 
+-# ifdef DEBUG
++#ifndef TOR_NASSERT
+     PRThread *lockOwner;
+ # endif
+ 
+diff --git a/js/src/shell/js.cpp b/js/src/shell/js.cpp
+index 7aa9380..120b328 100644
+--- a/js/src/shell/js.cpp
++++ b/js/src/shell/js.cpp
+@@ -13,7 +13,7 @@
+ #include <stdlib.h>
+ #include <string.h>
+ 
+-#include "mozilla/DebugOnly.h"
++#include "mozilla/DebugOnlyTor.h"
+ #include "mozilla/GuardObjects.h"
+ #include "mozilla/Util.h"
+ 
+@@ -2899,7 +2899,7 @@ WatchdogMain(void *arg)
+             uint64_t sleepDuration = PR_INTERVAL_NO_TIMEOUT;
+             if (gWatchdogHasTimeout)
+                 sleepDuration = PR_TicksPerSecond() / 10;
+-            mozilla::DebugOnly<PRStatus> status =
++            mozilla::DebugOnlyTor<PRStatus> status =
+               PR_WaitCondVar(gWatchdogWakeup, sleepDuration);
+             JS_ASSERT(status == PR_SUCCESS);
+         }
+@@ -4537,7 +4537,7 @@ dom_genericSetter(JSContext* cx, unsigned argc, JS::Value *vp);
+ static JSBool
+ dom_genericMethod(JSContext *cx, unsigned argc, JS::Value *vp);
+ 
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+ static JSClass *GetDomClass();
+ #endif
+ 
+@@ -4628,7 +4628,7 @@ static JSClass dom_class = {
+     JSCLASS_NO_INTERNAL_MEMBERS
+ };
+ 
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+ static JSClass *GetDomClass() {
+     return &dom_class;
+ }
+diff --git a/js/src/vm/GlobalObject.h b/js/src/vm/GlobalObject.h
+index 1869ab9..2927367 100644
+--- a/js/src/vm/GlobalObject.h
++++ b/js/src/vm/GlobalObject.h
+@@ -7,7 +7,7 @@
+ #ifndef vm_GlobalObject_h
+ #define vm_GlobalObject_h
+ 
+-#include "mozilla/DebugOnly.h"
++#include "mozilla/DebugOnlyTor.h"
+ 
+ #include "jsarray.h"
+ #include "jsbool.h"
+@@ -382,7 +382,7 @@ class GlobalObject : public JSObject
+             return true;
+         if (!cx->runtime()->cloneSelfHostedValue(cx, name, value))
+             return false;
+-        mozilla::DebugOnly<bool> ok = JS_DefinePropertyById(cx, holder, id, value, NULL, NULL, 0);
++        mozilla::DebugOnlyTor<bool> ok = JS_DefinePropertyById(cx, holder, id, value, NULL, NULL, 0);
+         JS_ASSERT(ok);
+         return true;
+     }
+diff --git a/js/src/vm/Interpreter.cpp b/js/src/vm/Interpreter.cpp
+index 30a7627..a6af6ca 100644
+--- a/js/src/vm/Interpreter.cpp
++++ b/js/src/vm/Interpreter.cpp
+@@ -10,7 +10,7 @@
+ 
+ #include "Interpreter.h"
+ 
+-#include "mozilla/DebugOnly.h"
++#include "mozilla/DebugOnlyTor.h"
+ #include "mozilla/FloatingPoint.h"
+ #include "mozilla/PodOperations.h"
+ 
+@@ -58,7 +58,7 @@ using namespace js;
+ using namespace js::gc;
+ using namespace js::types;
+ 
+-using mozilla::DebugOnly;
++using mozilla::DebugOnlyTor;
+ using mozilla::PodCopy;
+ 
+ /* Some objects (e.g., With) delegate 'this' to another object. */
+@@ -1198,7 +1198,7 @@ Interpret(JSContext *cx, RunState &state)
+     RootedId rootId0(cx);
+     RootedShape rootShape0(cx);
+     RootedScript rootScript0(cx);
+-    DebugOnly<uint32_t> blockDepth;
++    DebugOnlyTor<uint32_t> blockDepth;
+ 
+ #if JS_HAS_GENERATORS
+     if (JS_UNLIKELY(regs.fp()->isGeneratorFrame())) {
+diff --git a/js/src/vm/Monitor.h b/js/src/vm/Monitor.h
+index 9aaa504..c814aa2 100644
+--- a/js/src/vm/Monitor.h
++++ b/js/src/vm/Monitor.h
+@@ -69,7 +69,7 @@ class AutoLockMonitor
+ 
+     void wait() {
+ #ifdef JS_THREADSAFE
+-        mozilla::DebugOnly<PRStatus> status =
++        mozilla::DebugOnlyTor<PRStatus> status =
+           PR_WaitCondVar(monitor.condVar_, PR_INTERVAL_NO_TIMEOUT);
+         JS_ASSERT(status == PR_SUCCESS);
+ #endif
+diff --git a/js/src/vm/NumericConversions.h b/js/src/vm/NumericConversions.h
+index 61511a0..a75dcbb 100644
+--- a/js/src/vm/NumericConversions.h
++++ b/js/src/vm/NumericConversions.h
+@@ -7,7 +7,7 @@
+ #ifndef vm_NumericConversions_h
+ #define vm_NumericConversions_h
+ 
+-#include "mozilla/Assertions.h"
++#include "mozilla/AssertionsTor.h"
+ #include "mozilla/Casting.h"
+ #include "mozilla/FloatingPoint.h"
+ #include "mozilla/TypeTraits.h"
+@@ -38,7 +38,7 @@ template<typename ResultType>
+ inline ResultType
+ ToUintWidth(double d)
+ {
+-    MOZ_STATIC_ASSERT(mozilla::IsUnsigned<ResultType>::value,
++    TBB_MOZ_STATIC_ASSERT(mozilla::IsUnsigned<ResultType>::value,
+                       "ResultType must be an unsigned type");
+ 
+     uint64_t bits = mozilla::BitwiseCast<uint64_t>(d);
+@@ -69,7 +69,7 @@ ToUintWidth(double d)
+     // The significand contains the bits that will determine the final result.
+     // Shift those bits left or right, according to the exponent, to their
+     // locations in the unsigned binary representation of floor(abs(d)).
+-    MOZ_STATIC_ASSERT(sizeof(ResultType) <= sizeof(uint64_t),
++    TBB_MOZ_STATIC_ASSERT(sizeof(ResultType) <= sizeof(uint64_t),
+                       "Left-shifting below would lose upper bits");
+     ResultType result = (exponent > mozilla::DoubleExponentShift)
+                         ? ResultType(bits << (exponent - mozilla::DoubleExponentShift))
+@@ -113,7 +113,7 @@ template<typename ResultType>
+ inline ResultType
+ ToIntWidth(double d)
+ {
+-    MOZ_STATIC_ASSERT(mozilla::IsSigned<ResultType>::value,
++    TBB_MOZ_STATIC_ASSERT(mozilla::IsSigned<ResultType>::value,
+                       "ResultType must be a signed type");
+ 
+     const ResultType MaxValue = (1ULL << (CHAR_BIT * sizeof(ResultType) - 1)) - 1;
+diff --git a/js/src/vm/ObjectImpl-inl.h b/js/src/vm/ObjectImpl-inl.h
+index c5a4b4a..560be3d 100644
+--- a/js/src/vm/ObjectImpl-inl.h
++++ b/js/src/vm/ObjectImpl-inl.h
+@@ -7,7 +7,7 @@
+ #ifndef vm_ObjectImpl_inl_h
+ #define vm_ObjectImpl_inl_h
+ 
+-#include "mozilla/Assertions.h"
++#include "mozilla/AssertionsTor.h"
+ 
+ #include "jscompartment.h"
+ #include "jsgc.h"
+@@ -126,35 +126,35 @@ js::ObjectImpl::isExtensible() const
+ inline uint32_t
+ js::ObjectImpl::getDenseInitializedLength()
+ {
+-    MOZ_ASSERT(isNative());
++    TBB_MOZ_ASSERT(isNative());
+     return getElementsHeader()->initializedLength;
+ }
+ 
+ inline uint32_t
+ js::ObjectImpl::getDenseCapacity()
+ {
+-    MOZ_ASSERT(isNative());
++    TBB_MOZ_ASSERT(isNative());
+     return getElementsHeader()->capacity;
+ }
+ 
+ inline js::HeapSlotArray
+ js::ObjectImpl::getDenseElements()
+ {
+-    MOZ_ASSERT(isNative());
++    TBB_MOZ_ASSERT(isNative());
+     return HeapSlotArray(elements);
+ }
+ 
+ inline const js::Value &
+ js::ObjectImpl::getDenseElement(uint32_t idx)
+ {
+-    MOZ_ASSERT(isNative() && idx < getDenseInitializedLength());
++    TBB_MOZ_ASSERT(isNative() && idx < getDenseInitializedLength());
+     return elements[idx];
+ }
+ 
+ inline bool
+ js::ObjectImpl::containsDenseElement(uint32_t idx)
+ {
+-    MOZ_ASSERT(isNative());
++    TBB_MOZ_ASSERT(isNative());
+     return idx < getDenseInitializedLength() && !elements[idx].isMagic(JS_ELEMENTS_HOLE);
+ }
+ 
+@@ -163,7 +163,7 @@ js::ObjectImpl::getSlotRangeUnchecked(uint32_t start, uint32_t length,
+                                       HeapSlot **fixedStart, HeapSlot **fixedEnd,
+                                       HeapSlot **slotsStart, HeapSlot **slotsEnd)
+ {
+-    MOZ_ASSERT(start + length >= start);
++    TBB_MOZ_ASSERT(start + length >= start);
+ 
+     uint32_t fixed = numFixedSlots();
+     if (start < fixed) {
+@@ -190,7 +190,7 @@ js::ObjectImpl::getSlotRange(uint32_t start, uint32_t length,
+                              HeapSlot **fixedStart, HeapSlot **fixedEnd,
+                              HeapSlot **slotsStart, HeapSlot **slotsEnd)
+ {
+-    MOZ_ASSERT(slotInRange(start + length, SENTINEL_ALLOWED));
++    TBB_MOZ_ASSERT(slotInRange(start + length, SENTINEL_ALLOWED));
+     getSlotRangeUnchecked(start, length, fixedStart, fixedEnd, slotsStart, slotsEnd);
+ }
+ 
+@@ -220,20 +220,20 @@ js::ObjectImpl::isProxy() const
+ inline js::HeapSlot &
+ js::ObjectImpl::nativeGetSlotRef(uint32_t slot)
+ {
+-    MOZ_ASSERT(isNative());
+-    MOZ_ASSERT(slot < slotSpan());
++    TBB_MOZ_ASSERT(isNative());
++    TBB_MOZ_ASSERT(slot < slotSpan());
+     return getSlotRef(slot);
+ }
+ 
+ inline const js::Value &
+ js::ObjectImpl::nativeGetSlot(uint32_t slot) const
+ {
+-    MOZ_ASSERT(isNative());
+-    MOZ_ASSERT(slot < slotSpan());
++    TBB_MOZ_ASSERT(isNative());
++    TBB_MOZ_ASSERT(slot < slotSpan());
+     return getSlot(slot);
+ }
+ 
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+ inline bool
+ IsObjectValueInCompartment(js::Value v, JSCompartment *comp)
+ {
+@@ -246,32 +246,32 @@ IsObjectValueInCompartment(js::Value v, JSCompartment *comp)
+ inline void
+ js::ObjectImpl::setSlot(uint32_t slot, const js::Value &value)
+ {
+-    MOZ_ASSERT(slotInRange(slot));
+-    MOZ_ASSERT(IsObjectValueInCompartment(value, asObjectPtr()->compartment()));
++    TBB_MOZ_ASSERT(slotInRange(slot));
++    TBB_MOZ_ASSERT(IsObjectValueInCompartment(value, asObjectPtr()->compartment()));
+     getSlotRef(slot).set(this->asObjectPtr(), HeapSlot::Slot, slot, value);
+ }
+ 
+ inline void
+ js::ObjectImpl::setCrossCompartmentSlot(uint32_t slot, const js::Value &value)
+ {
+-    MOZ_ASSERT(slotInRange(slot));
++    TBB_MOZ_ASSERT(slotInRange(slot));
+     getSlotRef(slot).set(this->asObjectPtr(), HeapSlot::Slot, slot, value);
+ }
+ 
+ inline void
+ js::ObjectImpl::initSlot(uint32_t slot, const js::Value &value)
+ {
+-    MOZ_ASSERT(getSlot(slot).isUndefined());
+-    MOZ_ASSERT(slotInRange(slot));
+-    MOZ_ASSERT(IsObjectValueInCompartment(value, asObjectPtr()->compartment()));
++    TBB_MOZ_ASSERT(getSlot(slot).isUndefined());
++    TBB_MOZ_ASSERT(slotInRange(slot));
++    TBB_MOZ_ASSERT(IsObjectValueInCompartment(value, asObjectPtr()->compartment()));
+     initSlotUnchecked(slot, value);
+ }
+ 
+ inline void
+ js::ObjectImpl::initCrossCompartmentSlot(uint32_t slot, const js::Value &value)
+ {
+-    MOZ_ASSERT(getSlot(slot).isUndefined());
+-    MOZ_ASSERT(slotInRange(slot));
++    TBB_MOZ_ASSERT(getSlot(slot).isUndefined());
++    TBB_MOZ_ASSERT(slotInRange(slot));
+     initSlotUnchecked(slot, value);
+ }
+ 
+@@ -284,14 +284,14 @@ js::ObjectImpl::initSlotUnchecked(uint32_t slot, const js::Value &value)
+ inline void
+ js::ObjectImpl::setFixedSlot(uint32_t slot, const js::Value &value)
+ {
+-    MOZ_ASSERT(slot < numFixedSlots());
++    TBB_MOZ_ASSERT(slot < numFixedSlots());
+     fixedSlots()[slot].set(this->asObjectPtr(), HeapSlot::Slot, slot, value);
+ }
+ 
+ inline void
+ js::ObjectImpl::initFixedSlot(uint32_t slot, const js::Value &value)
+ {
+-    MOZ_ASSERT(slot < numFixedSlots());
++    TBB_MOZ_ASSERT(slot < numFixedSlots());
+     fixedSlots()[slot].init(this->asObjectPtr(), HeapSlot::Slot, slot, value);
+ }
+ 
+@@ -343,7 +343,7 @@ js::ObjectImpl::dynamicSlotsCount(uint32_t nfixed, uint32_t span)
+         return SLOT_CAPACITY_MIN;
+ 
+     uint32_t slots = RoundUpPow2(span);
+-    MOZ_ASSERT(slots >= span);
++    TBB_MOZ_ASSERT(slots >= span);
+     return slots;
+ }
+ 
+@@ -366,10 +366,10 @@ js::ObjectImpl::readBarrier(ObjectImpl *obj)
+ #ifdef JSGC_INCREMENTAL
+     Zone *zone = obj->zone();
+     if (zone->needsBarrier()) {
+-        MOZ_ASSERT(!zone->rt->isHeapMajorCollecting());
++        TBB_MOZ_ASSERT(!zone->rt->isHeapMajorCollecting());
+         JSObject *tmp = obj->asObjectPtr();
+         MarkObjectUnbarriered(zone->barrierTracer(), &tmp, "read barrier");
+-        MOZ_ASSERT(tmp == obj->asObjectPtr());
++        TBB_MOZ_ASSERT(tmp == obj->asObjectPtr());
+     }
+ #endif
+ }
+@@ -407,10 +407,10 @@ js::ObjectImpl::writeBarrierPre(ObjectImpl *obj)
+ 
+     Zone *zone = obj->zone();
+     if (zone->needsBarrier()) {
+-        MOZ_ASSERT(!zone->rt->isHeapMajorCollecting());
++        TBB_MOZ_ASSERT(!zone->rt->isHeapMajorCollecting());
+         JSObject *tmp = obj->asObjectPtr();
+         MarkObjectUnbarriered(zone->barrierTracer(), &tmp, "write barrier");
+-        MOZ_ASSERT(tmp == obj->asObjectPtr());
++        TBB_MOZ_ASSERT(tmp == obj->asObjectPtr());
+     }
+ #endif
+ }
+diff --git a/js/src/vm/ObjectImpl.cpp b/js/src/vm/ObjectImpl.cpp
+index b1ce275..c366708 100644
+--- a/js/src/vm/ObjectImpl.cpp
++++ b/js/src/vm/ObjectImpl.cpp
+@@ -284,7 +284,7 @@ js::ObjectImpl::copySlotRange(uint32_t start, const Value *vector, uint32_t leng
+         sp->set(zone, this->asObjectPtr(), HeapSlot::Slot, start++, *vector++);
+ }
+ 
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+ bool
+ js::ObjectImpl::slotInRange(uint32_t slot, SentinelAllowed sentinel) const
+ {
+@@ -293,7 +293,7 @@ js::ObjectImpl::slotInRange(uint32_t slot, SentinelAllowed sentinel) const
+         return slot <= capacity;
+     return slot < capacity;
+ }
+-#endif /* DEBUG */
++#endif /* TOR_NASSERT */
+ 
+ // See bug 844580.
+ #if defined(_MSC_VER)
+diff --git a/js/src/vm/ObjectImpl.h b/js/src/vm/ObjectImpl.h
+index 8eba5da..4edb6bb 100644
+--- a/js/src/vm/ObjectImpl.h
++++ b/js/src/vm/ObjectImpl.h
+@@ -7,7 +7,7 @@
+ #ifndef vm_ObjectImpl_h
+ #define vm_ObjectImpl_h
+ 
+-#include "mozilla/Assertions.h"
++#include "mozilla/AssertionsTor.h"
+ #include "mozilla/GuardObjects.h"
+ #include "mozilla/StandardInteger.h"
+ 
+@@ -55,11 +55,11 @@ class PropertyId
+ 
+   public:
+     bool isName() const {
+-        MOZ_ASSERT(JSID_IS_STRING(id) || JSID_IS_SPECIAL(id));
++        TBB_MOZ_ASSERT(JSID_IS_STRING(id) || JSID_IS_SPECIAL(id));
+         return JSID_IS_STRING(id);
+     }
+     bool isSpecial() const {
+-        MOZ_ASSERT(JSID_IS_STRING(id) || JSID_IS_SPECIAL(id));
++        TBB_MOZ_ASSERT(JSID_IS_STRING(id) || JSID_IS_SPECIAL(id));
+         return !isName();
+     }
+ 
+@@ -195,17 +195,17 @@ struct PropDesc {
+ 
+     bool isUndefined() const { return isUndefined_; }
+ 
+-    bool hasGet() const { MOZ_ASSERT(!isUndefined()); return hasGet_; }
+-    bool hasSet() const { MOZ_ASSERT(!isUndefined()); return hasSet_; }
+-    bool hasValue() const { MOZ_ASSERT(!isUndefined()); return hasValue_; }
+-    bool hasWritable() const { MOZ_ASSERT(!isUndefined()); return hasWritable_; }
+-    bool hasEnumerable() const { MOZ_ASSERT(!isUndefined()); return hasEnumerable_; }
+-    bool hasConfigurable() const { MOZ_ASSERT(!isUndefined()); return hasConfigurable_; }
++    bool hasGet() const { TBB_MOZ_ASSERT(!isUndefined()); return hasGet_; }
++    bool hasSet() const { TBB_MOZ_ASSERT(!isUndefined()); return hasSet_; }
++    bool hasValue() const { TBB_MOZ_ASSERT(!isUndefined()); return hasValue_; }
++    bool hasWritable() const { TBB_MOZ_ASSERT(!isUndefined()); return hasWritable_; }
++    bool hasEnumerable() const { TBB_MOZ_ASSERT(!isUndefined()); return hasEnumerable_; }
++    bool hasConfigurable() const { TBB_MOZ_ASSERT(!isUndefined()); return hasConfigurable_; }
+ 
+-    Value pd() const { MOZ_ASSERT(!isUndefined()); return pd_; }
++    Value pd() const { TBB_MOZ_ASSERT(!isUndefined()); return pd_; }
+     void clearPd() { pd_ = UndefinedValue(); }
+ 
+-    uint8_t attributes() const { MOZ_ASSERT(!isUndefined()); return attrs; }
++    uint8_t attributes() const { TBB_MOZ_ASSERT(!isUndefined()); return attrs; }
+ 
+     /* 8.10.1 IsAccessorDescriptor(desc) */
+     bool isAccessorDescriptor() const {
+@@ -223,47 +223,47 @@ struct PropDesc {
+     }
+ 
+     bool configurable() const {
+-        MOZ_ASSERT(!isUndefined());
+-        MOZ_ASSERT(hasConfigurable());
++        TBB_MOZ_ASSERT(!isUndefined());
++        TBB_MOZ_ASSERT(hasConfigurable());
+         return (attrs & JSPROP_PERMANENT) == 0;
+     }
+ 
+     bool enumerable() const {
+-        MOZ_ASSERT(!isUndefined());
+-        MOZ_ASSERT(hasEnumerable());
++        TBB_MOZ_ASSERT(!isUndefined());
++        TBB_MOZ_ASSERT(hasEnumerable());
+         return (attrs & JSPROP_ENUMERATE) != 0;
+     }
+ 
+     bool writable() const {
+-        MOZ_ASSERT(!isUndefined());
+-        MOZ_ASSERT(hasWritable());
++        TBB_MOZ_ASSERT(!isUndefined());
++        TBB_MOZ_ASSERT(hasWritable());
+         return (attrs & JSPROP_READONLY) == 0;
+     }
+ 
+     HandleValue value() const {
+-        MOZ_ASSERT(hasValue());
++        TBB_MOZ_ASSERT(hasValue());
+         return HandleValue::fromMarkedLocation(&value_);
+     }
+ 
+     JSObject * getterObject() const {
+-        MOZ_ASSERT(!isUndefined());
+-        MOZ_ASSERT(hasGet());
++        TBB_MOZ_ASSERT(!isUndefined());
++        TBB_MOZ_ASSERT(hasGet());
+         return get_.isUndefined() ? NULL : &get_.toObject();
+     }
+     JSObject * setterObject() const {
+-        MOZ_ASSERT(!isUndefined());
+-        MOZ_ASSERT(hasSet());
++        TBB_MOZ_ASSERT(!isUndefined());
++        TBB_MOZ_ASSERT(hasSet());
+         return set_.isUndefined() ? NULL : &set_.toObject();
+     }
+ 
+     HandleValue getterValue() const {
+-        MOZ_ASSERT(!isUndefined());
+-        MOZ_ASSERT(hasGet());
++        TBB_MOZ_ASSERT(!isUndefined());
++        TBB_MOZ_ASSERT(hasGet());
+         return HandleValue::fromMarkedLocation(&get_);
+     }
+     HandleValue setterValue() const {
+-        MOZ_ASSERT(!isUndefined());
+-        MOZ_ASSERT(hasSet());
++        TBB_MOZ_ASSERT(!isUndefined());
++        TBB_MOZ_ASSERT(hasSet());
+         return HandleValue::fromMarkedLocation(&set_);
+     }
+ 
+@@ -407,13 +407,13 @@ class ElementsHeader
+     };
+ 
+     void staticAsserts() {
+-        MOZ_STATIC_ASSERT(sizeof(ElementsHeader) == ValuesPerHeader * sizeof(Value),
++        TBB_MOZ_STATIC_ASSERT(sizeof(ElementsHeader) == ValuesPerHeader * sizeof(Value),
+                           "Elements size and values-per-Elements mismatch");
+     }
+ 
+   public:
+     ElementsKind kind() const {
+-        MOZ_ASSERT(type <= ArrayBufferElements);
++        TBB_MOZ_ASSERT(type <= ArrayBufferElements);
+         return ElementsKind(type);
+     }
+ 
+@@ -454,17 +454,17 @@ class DenseElementsHeader : public ElementsHeader
+ {
+   public:
+     uint32_t capacity() const {
+-        MOZ_ASSERT(ElementsHeader::isDenseElements());
++        TBB_MOZ_ASSERT(ElementsHeader::isDenseElements());
+         return dense.capacity;
+     }
+ 
+     uint32_t initializedLength() const {
+-        MOZ_ASSERT(ElementsHeader::isDenseElements());
++        TBB_MOZ_ASSERT(ElementsHeader::isDenseElements());
+         return dense.initializedLength;
+     }
+ 
+     uint32_t length() const {
+-        MOZ_ASSERT(ElementsHeader::isDenseElements());
++        TBB_MOZ_ASSERT(ElementsHeader::isDenseElements());
+         return ElementsHeader::length;
+     }
+ 
+@@ -490,12 +490,12 @@ class SparseElementsHeader : public ElementsHeader
+ {
+   public:
+     Shape *shape() {
+-        MOZ_ASSERT(ElementsHeader::isSparseElements());
++        TBB_MOZ_ASSERT(ElementsHeader::isSparseElements());
+         return sparse.shape;
+     }
+ 
+     uint32_t length() const {
+-        MOZ_ASSERT(ElementsHeader::isSparseElements());
++        TBB_MOZ_ASSERT(ElementsHeader::isSparseElements());
+         return ElementsHeader::length;
+     }
+ 
+@@ -588,7 +588,7 @@ struct uint8_clamped {
+     }
+ 
+     void staticAsserts() {
+-        MOZ_STATIC_ASSERT(sizeof(uint8_clamped) == 1,
++        TBB_MOZ_STATIC_ASSERT(sizeof(uint8_clamped) == 1,
+                           "uint8_clamped must be layout-compatible with uint8_t");
+     }
+ };
+@@ -607,21 +607,21 @@ template <typename T>
+ class TypedElementsHeader : public ElementsHeader
+ {
+     T getElement(uint32_t index) {
+-        MOZ_ASSERT(index < length());
++        TBB_MOZ_ASSERT(index < length());
+         return reinterpret_cast<T *>(this + 1)[index];
+     }
+ 
+     inline void assign(uint32_t index, double d);
+ 
+     void setElement(uint32_t index, T value) {
+-        MOZ_ASSERT(index < length());
++        TBB_MOZ_ASSERT(index < length());
+         reinterpret_cast<T *>(this + 1)[index] = value;
+     }
+ 
+   public:
+     uint32_t length() const {
+-        MOZ_ASSERT(Uint8Elements <= kind());
+-        MOZ_ASSERT(kind() <= Float64Elements);
++        TBB_MOZ_ASSERT(Uint8Elements <= kind());
++        TBB_MOZ_ASSERT(kind() <= Float64Elements);
+         return ElementsHeader::length;
+     }
+ 
+@@ -643,7 +643,7 @@ class TypedElementsHeader : public ElementsHeader
+ template<typename T> inline void
+ TypedElementsHeader<T>::assign(uint32_t index, double d)
+ {
+-    MOZ_NOT_REACHED("didn't specialize for this element type");
++    TBB_MOZ_NOT_REACHED("didn't specialize for this element type");
+ }
+ 
+ template<> inline void
+@@ -809,84 +809,84 @@ class ArrayBufferElementsHeader : public ElementsHeader
+ inline DenseElementsHeader &
+ ElementsHeader::asDenseElements()
+ {
+-    MOZ_ASSERT(isDenseElements());
++    TBB_MOZ_ASSERT(isDenseElements());
+     return *static_cast<DenseElementsHeader *>(this);
+ }
+ 
+ inline SparseElementsHeader &
+ ElementsHeader::asSparseElements()
+ {
+-    MOZ_ASSERT(isSparseElements());
++    TBB_MOZ_ASSERT(isSparseElements());
+     return *static_cast<SparseElementsHeader *>(this);
+ }
+ 
+ inline Uint8ElementsHeader &
+ ElementsHeader::asUint8Elements()
+ {
+-    MOZ_ASSERT(isUint8Elements());
++    TBB_MOZ_ASSERT(isUint8Elements());
+     return *static_cast<Uint8ElementsHeader *>(this);
+ }
+ 
+ inline Int8ElementsHeader &
+ ElementsHeader::asInt8Elements()
+ {
+-    MOZ_ASSERT(isInt8Elements());
++    TBB_MOZ_ASSERT(isInt8Elements());
+     return *static_cast<Int8ElementsHeader *>(this);
+ }
+ 
+ inline Uint16ElementsHeader &
+ ElementsHeader::asUint16Elements()
+ {
+-    MOZ_ASSERT(isUint16Elements());
++    TBB_MOZ_ASSERT(isUint16Elements());
+     return *static_cast<Uint16ElementsHeader *>(this);
+ }
+ 
+ inline Int16ElementsHeader &
+ ElementsHeader::asInt16Elements()
+ {
+-    MOZ_ASSERT(isInt16Elements());
++    TBB_MOZ_ASSERT(isInt16Elements());
+     return *static_cast<Int16ElementsHeader *>(this);
+ }
+ 
+ inline Uint32ElementsHeader &
+ ElementsHeader::asUint32Elements()
+ {
+-    MOZ_ASSERT(isUint32Elements());
++    TBB_MOZ_ASSERT(isUint32Elements());
+     return *static_cast<Uint32ElementsHeader *>(this);
+ }
+ 
+ inline Int32ElementsHeader &
+ ElementsHeader::asInt32Elements()
+ {
+-    MOZ_ASSERT(isInt32Elements());
++    TBB_MOZ_ASSERT(isInt32Elements());
+     return *static_cast<Int32ElementsHeader *>(this);
+ }
+ 
+ inline Uint8ClampedElementsHeader &
+ ElementsHeader::asUint8ClampedElements()
+ {
+-    MOZ_ASSERT(isUint8ClampedElements());
++    TBB_MOZ_ASSERT(isUint8ClampedElements());
+     return *static_cast<Uint8ClampedElementsHeader *>(this);
+ }
+ 
+ inline Float32ElementsHeader &
+ ElementsHeader::asFloat32Elements()
+ {
+-    MOZ_ASSERT(isFloat32Elements());
++    TBB_MOZ_ASSERT(isFloat32Elements());
+     return *static_cast<Float32ElementsHeader *>(this);
+ }
+ 
+ inline Float64ElementsHeader &
+ ElementsHeader::asFloat64Elements()
+ {
+-    MOZ_ASSERT(isFloat64Elements());
++    TBB_MOZ_ASSERT(isFloat64Elements());
+     return *static_cast<Float64ElementsHeader *>(this);
+ }
+ 
+ inline ArrayBufferElementsHeader &
+ ElementsHeader::asArrayBufferElements()
+ {
+-    MOZ_ASSERT(isArrayBufferElements());
++    TBB_MOZ_ASSERT(isArrayBufferElements());
+     return *static_cast<ArrayBufferElementsHeader *>(this);
+ }
+ 
+@@ -1021,7 +1021,7 @@ class ObjectElements
+     uint32_t length;
+ 
+     void staticAsserts() {
+-        MOZ_STATIC_ASSERT(sizeof(ObjectElements) == VALUES_PER_HEADER * sizeof(Value),
++        TBB_MOZ_STATIC_ASSERT(sizeof(ObjectElements) == VALUES_PER_HEADER * sizeof(Value),
+                           "Elements size and values-per-Elements mismatch");
+     }
+ 
+@@ -1166,18 +1166,18 @@ class ObjectImpl : public gc::Cell
+ 
+   private:
+     static void staticAsserts() {
+-        MOZ_STATIC_ASSERT(sizeof(ObjectImpl) == sizeof(shadow::Object),
++        TBB_MOZ_STATIC_ASSERT(sizeof(ObjectImpl) == sizeof(shadow::Object),
+                           "shadow interface must match actual implementation");
+-        MOZ_STATIC_ASSERT(sizeof(ObjectImpl) % sizeof(Value) == 0,
++        TBB_MOZ_STATIC_ASSERT(sizeof(ObjectImpl) % sizeof(Value) == 0,
+                           "fixed slots after an object must be aligned");
+ 
+-        MOZ_STATIC_ASSERT(offsetof(ObjectImpl, shape_) == offsetof(shadow::Object, shape),
++        TBB_MOZ_STATIC_ASSERT(offsetof(ObjectImpl, shape_) == offsetof(shadow::Object, shape),
+                           "shadow shape must match actual shape");
+-        MOZ_STATIC_ASSERT(offsetof(ObjectImpl, type_) == offsetof(shadow::Object, type),
++        TBB_MOZ_STATIC_ASSERT(offsetof(ObjectImpl, type_) == offsetof(shadow::Object, type),
+                           "shadow type must match actual type");
+-        MOZ_STATIC_ASSERT(offsetof(ObjectImpl, slots) == offsetof(shadow::Object, slots),
++        TBB_MOZ_STATIC_ASSERT(offsetof(ObjectImpl, slots) == offsetof(shadow::Object, slots),
+                           "shadow slots must match actual slots");
+-        MOZ_STATIC_ASSERT(offsetof(ObjectImpl, elements) == offsetof(shadow::Object, _1),
++        TBB_MOZ_STATIC_ASSERT(offsetof(ObjectImpl, elements) == offsetof(shadow::Object, _1),
+                           "shadow placeholder must match actual elements");
+     }
+ 
+@@ -1213,7 +1213,7 @@ class ObjectImpl : public gc::Cell
+     bool makeElementsSparse(JSContext *cx) {
+         NEW_OBJECT_REPRESENTATION_ONLY();
+ 
+-        MOZ_NOT_REACHED("NYI");
++        TBB_MOZ_NOT_REACHED("NYI");
+         return false;
+     }
+ 
+@@ -1272,7 +1272,7 @@ class ObjectImpl : public gc::Cell
+      */
+     void copySlotRange(uint32_t start, const Value *vector, uint32_t length);
+ 
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     enum SentinelAllowed {
+         SENTINEL_NOT_ALLOWED,
+         SENTINEL_ALLOWED
+@@ -1307,7 +1307,7 @@ class ObjectImpl : public gc::Cell
+     {
+         NEW_OBJECT_REPRESENTATION_ONLY();
+ 
+-        MOZ_NOT_REACHED("NYI");
++        TBB_MOZ_NOT_REACHED("NYI");
+         return Failure;
+     }
+ 
+@@ -1320,7 +1320,7 @@ class ObjectImpl : public gc::Cell
+     inline js::TaggedProto getTaggedProto() const;
+ 
+     Shape * lastProperty() const {
+-        MOZ_ASSERT(shape_);
++        TBB_MOZ_ASSERT(shape_);
+         return shape_;
+     }
+ 
+@@ -1333,7 +1333,7 @@ class ObjectImpl : public gc::Cell
+     inline bool isNative() const;
+ 
+     types::TypeObject *type() const {
+-        MOZ_ASSERT(!hasLazyType());
++        TBB_MOZ_ASSERT(!hasLazyType());
+         return type_;
+     }
+ 
+@@ -1403,7 +1403,7 @@ class ObjectImpl : public gc::Cell
+     inline bool inDictionaryMode() const;
+ 
+     const Value &getSlot(uint32_t slot) const {
+-        MOZ_ASSERT(slotInRange(slot));
++        TBB_MOZ_ASSERT(slotInRange(slot));
+         uint32_t fixed = numFixedSlots();
+         if (slot < fixed)
+             return fixedSlots()[slot];
+@@ -1423,12 +1423,12 @@ class ObjectImpl : public gc::Cell
+          * object, which may be necessary when fetching zero-length arrays of
+          * slots (e.g. for callObjVarArray).
+          */
+-        MOZ_ASSERT(slotInRange(slot, SENTINEL_ALLOWED));
++        TBB_MOZ_ASSERT(slotInRange(slot, SENTINEL_ALLOWED));
+         return getSlotAddressUnchecked(slot);
+     }
+ 
+     HeapSlot &getSlotRef(uint32_t slot) {
+-        MOZ_ASSERT(slotInRange(slot));
++        TBB_MOZ_ASSERT(slotInRange(slot));
+         return *getSlotAddress(slot);
+     }
+ 
+@@ -1444,12 +1444,12 @@ class ObjectImpl : public gc::Cell
+     /* For slots which are known to always be fixed, due to the way they are allocated. */
+ 
+     HeapSlot &getFixedSlotRef(uint32_t slot) {
+-        MOZ_ASSERT(slot < numFixedSlots());
++        TBB_MOZ_ASSERT(slot < numFixedSlots());
+         return fixedSlots()[slot];
+     }
+ 
+     const Value &getFixedSlot(uint32_t slot) const {
+-        MOZ_ASSERT(slot < numFixedSlots());
++        TBB_MOZ_ASSERT(slot < numFixedSlots());
+         return fixedSlots()[slot];
+     }
+ 
+@@ -1479,7 +1479,7 @@ class ObjectImpl : public gc::Cell
+     }
+ 
+     inline HeapSlot *fixedElements() const {
+-        MOZ_STATIC_ASSERT(2 * sizeof(Value) == sizeof(ObjectElements),
++        TBB_MOZ_STATIC_ASSERT(2 * sizeof(Value) == sizeof(ObjectElements),
+                           "when elements are stored inline, the first two "
+                           "slots will hold the ObjectElements header");
+         return &fixedSlots()[2];
+@@ -1524,8 +1524,8 @@ class ObjectImpl : public gc::Cell
+          * Private pointers are stored immediately after the last fixed slot of
+          * the object.
+          */
+-        MOZ_ASSERT(nfixed == numFixedSlots());
+-        MOZ_ASSERT(hasPrivate());
++        TBB_MOZ_ASSERT(nfixed == numFixedSlots());
++        TBB_MOZ_ASSERT(hasPrivate());
+         HeapSlot *end = &fixedSlots()[nfixed];
+         return *reinterpret_cast<void**>(end);
+     }
+diff --git a/js/src/vm/SPSProfiler.cpp b/js/src/vm/SPSProfiler.cpp
+index ec3e5fb..9781c53 100644
+--- a/js/src/vm/SPSProfiler.cpp
++++ b/js/src/vm/SPSProfiler.cpp
+@@ -4,7 +4,7 @@
+  * License, v. 2.0. If a copy of the MPL was not distributed with this
+  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+ 
+-#include "mozilla/DebugOnly.h"
++#include "mozilla/DebugOnlyTor.h"
+ 
+ #include "jsnum.h"
+ #include "jsscript.h"
+@@ -16,7 +16,7 @@
+ 
+ using namespace js;
+ 
+-using mozilla::DebugOnly;
++using mozilla::DebugOnlyTor;
+ 
+ SPSProfiler::SPSProfiler(JSRuntime *rt)
+   : rt(rt),
+@@ -205,7 +205,7 @@ SPSProfiler::pop()
+ const char*
+ SPSProfiler::allocProfileString(JSContext *cx, JSScript *script, JSFunction *maybeFun)
+ {
+-    DebugOnly<uint64_t> gcBefore = cx->runtime()->gcNumber;
++    DebugOnlyTor<uint64_t> gcBefore = cx->runtime()->gcNumber;
+     StringBuffer buf(cx);
+     bool hasAtom = maybeFun != NULL && maybeFun->displayAtom() != NULL;
+     if (hasAtom) {
+diff --git a/js/src/vm/SPSProfiler.h b/js/src/vm/SPSProfiler.h
+index f9b426e..2f3e00c 100644
+--- a/js/src/vm/SPSProfiler.h
++++ b/js/src/vm/SPSProfiler.h
+@@ -9,7 +9,7 @@
+ 
+ #include <stddef.h>
+ 
+-#include "mozilla/DebugOnly.h"
++#include "mozilla/DebugOnlyTor.h"
+ #include "mozilla/GuardObjects.h"
+ #include "mozilla/HashFunctions.h"
+ 
+@@ -210,7 +210,7 @@ class SPSEntryMarker
+ 
+   private:
+     SPSProfiler *profiler;
+-    mozilla::DebugOnly<uint32_t> size_before;
++    mozilla::DebugOnlyTor<uint32_t> size_before;
+     MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
+ };
+ 
+diff --git a/js/src/vm/Shape.cpp b/js/src/vm/Shape.cpp
+index da08e89..76ce1f7 100644
+--- a/js/src/vm/Shape.cpp
++++ b/js/src/vm/Shape.cpp
+@@ -6,7 +6,7 @@
+ 
+ /* JS symbol tables. */
+ 
+-#include "mozilla/DebugOnly.h"
++#include "mozilla/DebugOnlyTor.h"
+ #include "mozilla/PodOperations.h"
+ 
+ #include "jsapi.h"
+@@ -25,7 +25,7 @@
+ using namespace js;
+ using namespace js::gc;
+ 
+-using mozilla::DebugOnly;
++using mozilla::DebugOnlyTor;
+ using mozilla::PodZero;
+ 
+ bool
+@@ -163,7 +163,7 @@ ShapeTable::search(jsid id, bool adding)
+     hash2 = HASH2(hash0, sizeLog2, hashShift);
+     sizeMask = JS_BITMASK(sizeLog2);
+ 
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     uintptr_t collision_flag = SHAPE_COLLISION;
+ #endif
+ 
+@@ -174,7 +174,7 @@ ShapeTable::search(jsid id, bool adding)
+         firstRemoved = NULL;
+         if (adding && !SHAPE_HAD_COLLISION(stored))
+             SHAPE_FLAG_COLLISION(spp, shape);
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+         collision_flag &= uintptr_t(*spp) & SHAPE_COLLISION;
+ #endif
+     }
+@@ -200,7 +200,7 @@ ShapeTable::search(jsid id, bool adding)
+         } else {
+             if (adding && !SHAPE_HAD_COLLISION(stored))
+                 SHAPE_FLAG_COLLISION(spp, shape);
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+             collision_flag &= uintptr_t(*spp) & SHAPE_COLLISION;
+ #endif
+         }
+@@ -1450,8 +1450,8 @@ JSCompartment::sweepInitialShapeTable()
+             if (IsShapeAboutToBeFinalized(&shape) || (entry.proto.isObject() && IsObjectAboutToBeFinalized(&proto))) {
+                 e.removeFront();
+             } else {
+-#ifdef DEBUG
+-                DebugOnly<JSObject *> parent = shape->getObjectParent();
++#ifndef TOR_NASSERT
++                DebugOnlyTor<JSObject *> parent = shape->getObjectParent();
+                 JS_ASSERT(!parent || !IsObjectAboutToBeFinalized(&parent));
+                 JS_ASSERT(parent == shape->getObjectParent());
+ #endif
+diff --git a/js/src/vm/Stack-inl.h b/js/src/vm/Stack-inl.h
+index db6fc22..a035acb 100644
+--- a/js/src/vm/Stack-inl.h
++++ b/js/src/vm/Stack-inl.h
+@@ -849,7 +849,7 @@ InterpreterActivation::InterpreterActivation(JSContext *cx, StackFrame *entry, F
+     entry_(entry),
+     current_(entry),
+     regs_(regs)
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+   , oldFrameCount_(cx_->runtime()->interpreterStack().frameCount_)
+ #endif
+ {}
+diff --git a/js/src/vm/Stack.h b/js/src/vm/Stack.h
+index fffcf73..46f90a8 100644
+--- a/js/src/vm/Stack.h
++++ b/js/src/vm/Stack.h
+@@ -1217,7 +1217,7 @@ class InterpreterActivation : public Activation
+     StackFrame *current_;     // The most recent frame.
+     FrameRegs &regs_;
+ 
+-#ifdef DEBUG
++#ifndef TOR_NASSERT
+     size_t oldFrameCount_;
+ #endif
+ 
+diff --git a/js/src/vm/StringBuffer.h b/js/src/vm/StringBuffer.h
+index 9c40fec..587537b 100644
+--- a/js/src/vm/StringBuffer.h
++++ b/js/src/vm/StringBuffer.h
+@@ -7,7 +7,7 @@
+ #ifndef vm_StringBuffer_h
+ #define vm_StringBuffer_h
+ 
+-#include "mozilla/DebugOnly.h"
++#include "mozilla/DebugOnlyTor.h"
+ 
+ #include "jscntxt.h"
+ 
+@@ -120,8 +120,8 @@ StringBuffer::appendInflated(const char *cstr, size_t cstrlen)
+     size_t lengthBefore = length();
+     if (!cb.growByUninitialized(cstrlen))
+         return false;
+-    mozilla::DebugOnly<size_t> oldcstrlen = cstrlen;
+-    mozilla::DebugOnly<bool> ok = InflateStringToBuffer(context(), cstr, cstrlen,
++    mozilla::DebugOnlyTor<size_t> oldcstrlen = cstrlen;
++    mozilla::DebugOnlyTor<bool> ok = InflateStringToBuffer(context(), cstr, cstrlen,
+                                                         begin() + lengthBefore, &cstrlen);
+     JS_ASSERT(ok && oldcstrlen == cstrlen);
+     return true;
+diff --git a/media/libnestegg/src/halloc.c b/media/libnestegg/src/halloc.c
+index 5382c56..962f20d 100644
+--- a/media/libnestegg/src/halloc.c
++++ b/media/libnestegg/src/halloc.c
+@@ -75,7 +75,7 @@ void * halloc(void * ptr, size_t len)
+ 		p = allocator(0, len + sizeof_hblock);
+ 		if (! p)
+ 			return NULL;
+-#ifndef NDEBUG
++#ifndef TOR_NASSERT
+ 		p->magic = HH_MAGIC;
+ #endif
+ 		hlist_init(&p->children);
+@@ -236,7 +236,7 @@ static void _free_children(hblock_t * p)
+ {
+ 	hlist_item_t * i, * tmp;
+ 	
+-#ifndef NDEBUG
++#ifndef TOR_NASSERT
+ 	/*
+ 	 *	this catches loops in hierarchy with almost zero 
+ 	 *	overhead (compared to _relate() running time)
+diff --git a/mfbt/AssertionsTor.h b/mfbt/AssertionsTor.h
+new file mode 100644
+index 0000000..0e8ea18
+--- /dev/null
++++ b/mfbt/AssertionsTor.h
+@@ -0,0 +1,436 @@
++/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
++/* This Source Code Form is subject to the terms of the Mozilla Public
++ * License, v. 2.0. If a copy of the MPL was not distributed with this
++ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
++
++/* Implementations of runtime and static assertion macros for C and C++. */
++
++#ifndef tbb_Assertions_h_
++#define tbb_Assertions_h_
++
++#include "mozilla/Attributes.h"
++#include "mozilla/Compiler.h"
++#include "mozilla/Likely.h"
++
++#include <stddef.h>
++#include <stdio.h>
++#include <stdlib.h>
++#ifdef WIN32
++   /*
++    * TerminateProcess and GetCurrentProcess are defined in <winbase.h>, which
++    * further depends on <windef.h>.  We hardcode these few definitions manually
++    * because those headers clutter the global namespace with a significant
++    * number of undesired macros and symbols.
++    */
++#  ifdef __cplusplus
++   extern "C" {
++#  endif
++   __declspec(dllimport) int __stdcall
++   TerminateProcess(void* hProcess, unsigned int uExitCode);
++   __declspec(dllimport) void* __stdcall GetCurrentProcess(void);
++#  ifdef __cplusplus
++   }
++#  endif
++#else
++#  include <signal.h>
++#endif
++#ifdef ANDROID
++#  include <android/log.h>
++#endif
++
++/*
++ * TBB_MOZ_STATIC_ASSERT may be used to assert a condition *at compile time*.  This
++ * can be useful when you make certain assumptions about what must hold for
++ * optimal, or even correct, behavior.  For example, you might assert that the
++ * size of a struct is a multiple of the target architecture's word size:
++ *
++ *   struct S { ... };
++ *   TBB_MOZ_STATIC_ASSERT(sizeof(S) % sizeof(size_t) == 0,
++ *                     "S should be a multiple of word size for efficiency");
++ *
++ * This macro can be used in any location where both an extern declaration and a
++ * typedef could be used.
++ *
++ * Be aware of the gcc 4.2 concerns noted further down when writing patches that
++ * use this macro, particularly if a patch only bounces on OS X.
++ */
++#ifdef __cplusplus
++#  if defined(__clang__)
++#    ifndef __has_extension
++#      define __has_extension __has_feature /* compatibility, for older versions of clang */
++#    endif
++#    if __has_extension(cxx_static_assert)
++#      define TBB_MOZ_STATIC_ASSERT(cond, reason)    static_assert((cond), reason)
++#    endif
++#  elif defined(__GNUC__)
++#    if (defined(__GXX_EXPERIMENTAL_CXX0X__) || __cplusplus >= 201103L)
++#      define TBB_MOZ_STATIC_ASSERT(cond, reason)    static_assert((cond), reason)
++#    endif
++#  elif defined(_MSC_VER)
++#    if _MSC_VER >= 1600 /* MSVC 10 */
++#      define TBB_MOZ_STATIC_ASSERT(cond, reason)    static_assert((cond), reason)
++#    endif
++#  elif defined(__HP_aCC)
++#    if __HP_aCC >= 62500 && defined(_HP_CXX0x_SOURCE)
++#      define TBB_MOZ_STATIC_ASSERT(cond, reason)    static_assert((cond), reason)
++#    endif
++#  endif
++#endif
++#ifndef TBB_MOZ_STATIC_ASSERT
++   /*
++    * Some of the definitions below create an otherwise-unused typedef.  This
++    * triggers compiler warnings with some versions of gcc, so mark the typedefs
++    * as permissibly-unused to disable the warnings.
++    */
++#  if defined(__GNUC__)
++#    define TBB_MOZ_STATIC_ASSERT_UNUSED_ATTRIBUTE __attribute__((unused))
++#  else
++#    define TBB_MOZ_STATIC_ASSERT_UNUSED_ATTRIBUTE /* nothing */
++#  endif
++#  define TBB_MOZ_STATIC_ASSERT_GLUE1(x, y)          x##y
++#  define TBB_MOZ_STATIC_ASSERT_GLUE(x, y)           TBB_MOZ_STATIC_ASSERT_GLUE1(x, y)
++#  if defined(__SUNPRO_CC)
++     /*
++      * The Sun Studio C++ compiler is buggy when declaring, inside a function,
++      * another extern'd function with an array argument whose length contains a
++      * sizeof, triggering the error message "sizeof expression not accepted as
++      * size of array parameter".  This bug (6688515, not public yet) would hit
++      * defining moz_static_assert as a function, so we always define an extern
++      * array for Sun Studio.
++      *
++      * We include the line number in the symbol name in a best-effort attempt
++      * to avoid conflicts (see below).
++      */
++#    define TBB_MOZ_STATIC_ASSERT(cond, reason) \
++       extern char TBB_MOZ_STATIC_ASSERT_GLUE(moz_static_assert, __LINE__)[(cond) ? 1 : -1]
++#  elif defined(__COUNTER__)
++     /*
++      * If there was no preferred alternative, use a compiler-agnostic version.
++      *
++      * Note that the non-__COUNTER__ version has a bug in C++: it can't be used
++      * in both |extern "C"| and normal C++ in the same translation unit.  (Alas
++      * |extern "C"| isn't allowed in a function.)  The only affected compiler
++      * we really care about is gcc 4.2.  For that compiler and others like it,
++      * we include the line number in the function name to do the best we can to
++      * avoid conflicts.  These should be rare: a conflict would require use of
++      * TBB_MOZ_STATIC_ASSERT on the same line in separate files in the same
++      * translation unit, *and* the uses would have to be in code with
++      * different linkage, *and* the first observed use must be in C++-linkage
++      * code.
++      */
++#    define TBB_MOZ_STATIC_ASSERT(cond, reason) \
++       typedef int TBB_MOZ_STATIC_ASSERT_GLUE(moz_static_assert, __COUNTER__)[(cond) ? 1 : -1] TBB_MOZ_STATIC_ASSERT_UNUSED_ATTRIBUTE
++#  else
++#    define TBB_MOZ_STATIC_ASSERT(cond, reason) \
++       extern void TBB_MOZ_STATIC_ASSERT_GLUE(moz_static_assert, __LINE__)(int arg[(cond) ? 1 : -1]) TBB_MOZ_STATIC_ASSERT_UNUSED_ATTRIBUTE
++#  endif
++#endif
++
++#define TBB_MOZ_STATIC_ASSERT_IF(cond, expr, reason)  TBB_MOZ_STATIC_ASSERT(!(cond) || (expr), reason)
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++/*
++ * Prints |s| as an assertion failure (using file and ln as the location of the
++ * assertion) to the standard debug-output channel.
++ *
++ * Usually you should use TBB_MOZ_ASSERT or TBB_MOZ_CRASH instead of this method.  This
++ * method is primarily for internal use in this header, and only secondarily
++ * for use in implementing release-build assertions.
++ */
++static MOZ_ALWAYS_INLINE void
++TBB_MOZ_ReportAssertionFailure(const char* s, const char* file, int ln)
++{
++#ifdef ANDROID
++  __android_log_print(ANDROID_LOG_FATAL, "TBB_MOZ_Assert",
++                      "Assertion failure: %s, at %s:%d\n", s, file, ln);
++#else
++  fprintf(stderr, "Assertion failure: %s, at %s:%d\n", s, file, ln);
++  fflush(stderr);
++#endif
++}
++
++static MOZ_ALWAYS_INLINE void
++TBB_MOZ_ReportCrash(const char* s, const char* file, int ln)
++{
++#ifdef ANDROID
++    __android_log_print(ANDROID_LOG_FATAL, "TBB_MOZ_CRASH",
++                        "Hit TBB_MOZ_CRASH(%s) at %s:%d\n", s, file, ln);
++#else
++  fprintf(stderr, "Hit TBB_MOZ_CRASH(%s) at %s:%d\n", s, file, ln);
++  fflush(stderr);
++#endif
++}
++
++/**
++ * TBB_MOZ_REALLY_CRASH is used in the implementation of TBB_MOZ_CRASH().  You should
++ * call TBB_MOZ_CRASH instead.
++ */
++#if defined(_MSC_VER)
++   /*
++    * On MSVC use the __debugbreak compiler intrinsic, which produces an inline
++    * (not nested in a system function) breakpoint.  This distinctively invokes
++    * Breakpad without requiring system library symbols on all stack-processing
++    * machines, as a nested breakpoint would require.
++    *
++    * We use TerminateProcess with the exit code aborting would generate
++    * because we don't want to invoke atexit handlers, destructors, library
++    * unload handlers, and so on when our process might be in a compromised
++    * state.
++    *
++    * We don't use abort() because it'd cause Windows to annoyingly pop up the
++    * process error dialog multiple times.  See bug 345118 and bug 426163.
++    *
++    * We follow TerminateProcess() with a call to TBB_MOZ_NoReturn() so that the
++    * compiler doesn't hassle us to provide a return statement after a
++    * TBB_MOZ_REALLY_CRASH() call.
++    *
++    * (Technically these are Windows requirements, not MSVC requirements.  But
++    * practically you need MSVC for debugging, and we only ship builds created
++    * by MSVC, so doing it this way reduces complexity.)
++    */
++
++__declspec(noreturn) __inline void TBB_MOZ_NoReturn() {}
++
++#  ifdef __cplusplus
++#    define TBB_MOZ_REALLY_CRASH() \
++       do { \
++         __debugbreak(); \
++         *((volatile int*) NULL) = 123; \
++         ::TerminateProcess(::GetCurrentProcess(), 3); \
++         ::TBB_MOZ_NoReturn(); \
++       } while (0)
++#  else
++#    define TBB_MOZ_REALLY_CRASH() \
++       do { \
++         __debugbreak(); \
++         *((volatile int*) NULL) = 123; \
++         TerminateProcess(GetCurrentProcess(), 3); \
++         TBB_MOZ_NoReturn(); \
++       } while (0)
++#  endif
++#else
++#  ifdef __cplusplus
++#    define TBB_MOZ_REALLY_CRASH() \
++       do { \
++         *((volatile int*) NULL) = 123; \
++         ::abort(); \
++       } while (0)
++#  else
++#    define TBB_MOZ_REALLY_CRASH() \
++       do { \
++         *((volatile int*) NULL) = 123; \
++         abort(); \
++       } while (0)
++#  endif
++#endif
++
++/*
++ * TBB_MOZ_CRASH([explanation-string]) crashes the program, plain and simple, in a
++ * Breakpad-compatible way, in both debug and release builds.
++ *
++ * TBB_MOZ_CRASH is a good solution for "handling" failure cases when you're
++ * unwilling or unable to handle them more cleanly -- for OOM, for likely memory
++ * corruption, and so on.  It's also a good solution if you need safe behavior
++ * in release builds as well as debug builds.  But if the failure is one that
++ * should be debugged and fixed, TBB_MOZ_ASSERT is generally preferable.
++ *
++ * The optional explanation-string, if provided, must be a string literal
++ * explaining why we're crashing.  This argument is intended for use with
++ * TBB_MOZ_CRASH() calls whose rationale is non-obvious; don't use it if it's
++ * obvious why we're crashing.
++ *
++ * If we're a DEBUG build and we crash at a TBB_MOZ_CRASH which provides an
++ * explanation-string, we print the string to stderr.  Otherwise, we don't
++ * print anything; this is because we want TBB_MOZ_CRASH to be 100% safe in release
++ * builds, and it's hard to print to stderr safely when memory might have been
++ * corrupted.
++ */
++#ifdef TOR_NASSERT
++#  define TBB_MOZ_CRASH(...) TBB_MOZ_REALLY_CRASH()
++#else
++#  define TBB_MOZ_CRASH(...) \
++     do { \
++       TBB_MOZ_ReportCrash("" __VA_ARGS__, __FILE__, __LINE__); \
++       TBB_MOZ_REALLY_CRASH(); \
++     } while(0)
++#endif
++
++#ifdef __cplusplus
++} /* extern "C" */
++#endif
++
++/*
++ * TBB_MOZ_ASSERT(expr [, explanation-string]) asserts that |expr| must be truthy in
++ * debug builds.  If it is, execution continues.  Otherwise, an error message
++ * including the expression and the explanation-string (if provided) is printed,
++ * an attempt is made to invoke any existing debugger, and execution halts.
++ * TBB_MOZ_ASSERT is fatal: no recovery is possible.  Do not assert a condition
++ * which can correctly be falsy.
++ *
++ * The optional explanation-string, if provided, must be a string literal
++ * explaining the assertion.  It is intended for use with assertions whose
++ * correctness or rationale is non-obvious, and for assertions where the "real"
++ * condition being tested is best described prosaically.  Don't provide an
++ * explanation if it's not actually helpful.
++ *
++ *   // No explanation needed: pointer arguments often must not be NULL.
++ *   TBB_MOZ_ASSERT(arg);
++ *
++ *   // An explanation can be helpful to explain exactly how we know an
++ *   // assertion is valid.
++ *   TBB_MOZ_ASSERT(state == WAITING_FOR_RESPONSE,
++ *              "given that <thingA> and <thingB>, we must have...");
++ *
++ *   // Or it might disambiguate multiple identical (save for their location)
++ *   // assertions of the same expression.
++ *   TBB_MOZ_ASSERT(getSlot(PRIMITIVE_THIS_SLOT).isUndefined(),
++ *              "we already set [[PrimitiveThis]] for this Boolean object");
++ *   TBB_MOZ_ASSERT(getSlot(PRIMITIVE_THIS_SLOT).isUndefined(),
++ *              "we already set [[PrimitiveThis]] for this String object");
++ *
++ * TBB_MOZ_ASSERT has no effect in non-debug builds.  It is designed to catch bugs
++ * *only* during debugging, not "in the field".
++ */
++#ifndef TOR_NASSERT
++   /* First the single-argument form. */
++#  define TBB_MOZ_ASSERT_HELPER1(expr) \
++     do { \
++       if (MOZ_UNLIKELY(!(expr))) { \
++         TBB_MOZ_ReportAssertionFailure(#expr, __FILE__, __LINE__); \
++         TBB_MOZ_REALLY_CRASH(); \
++       } \
++     } while (0)
++   /* Now the two-argument form. */
++#  define TBB_MOZ_ASSERT_HELPER2(expr, explain) \
++     do { \
++       if (MOZ_UNLIKELY(!(expr))) { \
++         TBB_MOZ_ReportAssertionFailure(#expr " (" explain ")", __FILE__, __LINE__); \
++         TBB_MOZ_REALLY_CRASH(); \
++       } \
++     } while (0)
++   /* And now, helper macrology up the wazoo. */
++   /*
++    * Count the number of arguments passed to TBB_MOZ_ASSERT, very carefully
++    * tiptoeing around an MSVC bug where it improperly expands __VA_ARGS__ as a
++    * single token in argument lists.  See these URLs for details:
++    *
++    *   http://connect.microsoft.com/VisualStudio/feedback/details/380090/variadic-macro-replacement
++    *   http://cplusplus.co.il/2010/07/17/variadic-macro-to-count-number-of-arguments/#comment-644
++    */
++#  define TBB_MOZ_COUNT_ASSERT_ARGS_IMPL2(_1, _2, count, ...) \
++     count
++#  define TBB_MOZ_COUNT_ASSERT_ARGS_IMPL(args) \
++	 TBB_MOZ_COUNT_ASSERT_ARGS_IMPL2 args
++#  define TBB_MOZ_COUNT_ASSERT_ARGS(...) \
++     TBB_MOZ_COUNT_ASSERT_ARGS_IMPL((__VA_ARGS__, 2, 1, 0))
++   /* Pick the right helper macro to invoke. */
++#  define TBB_MOZ_ASSERT_CHOOSE_HELPER2(count) TBB_MOZ_ASSERT_HELPER##count
++#  define TBB_MOZ_ASSERT_CHOOSE_HELPER1(count) TBB_MOZ_ASSERT_CHOOSE_HELPER2(count)
++#  define TBB_MOZ_ASSERT_CHOOSE_HELPER(count) TBB_MOZ_ASSERT_CHOOSE_HELPER1(count)
++   /* The actual macro. */
++#  define TBB_MOZ_ASSERT_GLUE(x, y) x y
++#  define TBB_MOZ_ASSERT(...) \
++     TBB_MOZ_ASSERT_GLUE(TBB_MOZ_ASSERT_CHOOSE_HELPER(TBB_MOZ_COUNT_ASSERT_ARGS(__VA_ARGS__)), \
++                     (__VA_ARGS__))
++#else
++#  define TBB_MOZ_ASSERT(...) do { } while(0)
++#endif /* !TOR_NASSERT */
++
++/*
++ * TBB_MOZ_ASSERT_IF(cond1, cond2) is equivalent to TBB_MOZ_ASSERT(cond2) if cond1 is
++ * true.
++ *
++ *   TBB_MOZ_ASSERT_IF(isPrime(num), num == 2 || isOdd(num));
++ *
++ * As with TBB_MOZ_ASSERT, TBB_MOZ_ASSERT_IF has effect only in debug builds.  It is
++ * designed to catch bugs during debugging, not "in the field".
++ */
++#ifndef TOR_NASSERT
++#  define TBB_MOZ_ASSERT_IF(cond, expr) \
++     do { \
++       if (cond) \
++         TBB_MOZ_ASSERT(expr); \
++     } while (0)
++#else
++#  define TBB_MOZ_ASSERT_IF(cond, expr)  do { } while (0)
++#endif
++
++/*
++ * TBB_MOZ_NOT_REACHED_MARKER() expands to an expression which states that it is
++ * undefined behavior for execution to reach this point.  No guarantees are made
++ * about what will happen if this is reached at runtime.  Most code should
++ * probably use the higher level TBB_MOZ_NOT_REACHED, which uses this when
++ * appropriate.
++ */
++#if defined(__clang__)
++#  define TBB_MOZ_NOT_REACHED_MARKER() __builtin_unreachable()
++#elif defined(__GNUC__)
++   /*
++    * __builtin_unreachable() was implemented in gcc 4.5.  If we don't have
++    * that, call a noreturn function; abort() will do nicely.  Qualify the call
++    * in C++ in case there's another abort() visible in local scope.
++    */
++#  if MOZ_GCC_VERSION_AT_LEAST(4, 5, 0)
++#    define TBB_MOZ_NOT_REACHED_MARKER() __builtin_unreachable()
++#  else
++#    ifdef __cplusplus
++#      define TBB_MOZ_NOT_REACHED_MARKER() ::abort()
++#    else
++#      define TBB_MOZ_NOT_REACHED_MARKER() abort()
++#    endif
++#  endif
++#elif defined(_MSC_VER)
++#  define TBB_MOZ_NOT_REACHED_MARKER() __assume(0)
++#else
++#  ifdef __cplusplus
++#    define TBB_MOZ_NOT_REACHED_MARKER() ::abort()
++#  else
++#    define TBB_MOZ_NOT_REACHED_MARKER() abort()
++#  endif
++#endif
++
++/*
++ * TBB_MOZ_NOT_REACHED(reason) indicates that the given point can't be reached
++ * during execution: simply reaching that point in execution is a bug.  It takes
++ * as an argument an error message indicating the reason why that point should
++ * not have been reachable.
++ *
++ *   // ...in a language parser...
++ *   void handle(BooleanLiteralNode node)
++ *   {
++ *     if (node.isTrue())
++ *       handleTrueLiteral();
++ *     else if (node.isFalse())
++ *       handleFalseLiteral();
++ *     else
++ *       TBB_MOZ_NOT_REACHED("boolean literal that's not true or false?");
++ *   }
++ */
++#if !defined(TOR_NASSERT)
++#  define TBB_MOZ_NOT_REACHED(reason) \
++     do { \
++       TBB_MOZ_ASSERT(false, reason); \
++       TBB_MOZ_NOT_REACHED_MARKER(); \
++     } while (0)
++#else
++#  define TBB_MOZ_NOT_REACHED(reason)  TBB_MOZ_NOT_REACHED_MARKER()
++#endif
++
++/*
++ * TBB_MOZ_ALWAYS_TRUE(expr) and TBB_MOZ_ALWAYS_FALSE(expr) always evaluate the provided
++ * expression, in debug builds and in release builds both.  Then, in debug
++ * builds only, the value of the expression is asserted either true or false
++ * using TBB_MOZ_ASSERT.
++ */
++#ifndef TOR_NASSERT
++#  define TBB_MOZ_ALWAYS_TRUE(expr)      TBB_MOZ_ASSERT((expr))
++#  define TBB_MOZ_ALWAYS_FALSE(expr)     TBB_MOZ_ASSERT(!(expr))
++#else
++#  define TBB_MOZ_ALWAYS_TRUE(expr)      ((void)(expr))
++#  define TBB_MOZ_ALWAYS_FALSE(expr)     ((void)(expr))
++#endif
++
++#endif /* mozilla_Assertions_h_ */
+diff --git a/mfbt/DebugOnlyTor.h b/mfbt/DebugOnlyTor.h
+new file mode 100644
+index 0000000..322cb85
+--- /dev/null
++++ b/mfbt/DebugOnlyTor.h
+@@ -0,0 +1,77 @@
++/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
++/* This Source Code Form is subject to the terms of the Mozilla Public
++ * License, v. 2.0. If a copy of the MPL was not distributed with this
++ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
++
++/*
++ * Provides DebugOnlyTor, a type for variables used only in debug builds (i.e. by
++ * assertions).
++ */
++
++#ifndef tor_DebugOnly_h_
++#define tor_DebugOnly_h_
++
++namespace mozilla {
++
++/**
++ * DebugOnlyTor contains a value of type T, but only in debug builds.  In release
++ * builds, it does not contain a value.  This helper is intended to be used with
++ * MOZ_ASSERT()-style macros, allowing one to write:
++ *
++ *   DebugOnlyTor<bool> check = func();
++ *   MOZ_ASSERT(check);
++ *
++ * more concisely than declaring |check| conditional on #ifdef DEBUG, but also
++ * without allocating storage space for |check| in release builds.
++ *
++ * DebugOnlyTor instances can only be coerced to T in debug builds.  In release
++ * builds they don't have a value, so type coercion is not well defined.
++ */
++template<typename T>
++class DebugOnlyTor
++{
++  public:
++#ifndef TOR_NASSERT
++    T value;
++
++    DebugOnlyTor() { }
++    DebugOnlyTor(const T& other) : value(other) { }
++    DebugOnlyTor(const DebugOnlyTor& other) : value(other.value) { }
++    DebugOnlyTor& operator=(const T& rhs) {
++      value = rhs;
++      return *this;
++    }
++    void operator++(int) {
++      value++;
++    }
++    void operator--(int) {
++      value--;
++    }
++
++    T* operator&() { return &value; }
++
++    operator T&() { return value; }
++    operator const T&() const { return value; }
++
++    T& operator->() { return value; }
++
++#else
++    DebugOnlyTor() { }
++    DebugOnlyTor(const T&) { }
++    DebugOnlyTor(const DebugOnlyTor&) { }
++    DebugOnlyTor& operator=(const T&) { return *this; }
++    void operator++(int) { }
++    void operator--(int) { }
++#endif
++
++    /*
++     * DebugOnlyTor must always have a destructor or else it will
++     * generate "unused variable" warnings, exactly what it's intended
++     * to avoid!
++     */
++    ~DebugOnlyTor() {}
++};
++
++}
++
++#endif  /* tor_DebugOnly_h_ */
+diff --git a/mfbt/exported_headers.mk b/mfbt/exported_headers.mk
+index 6370936..5582fcd 100644
+--- a/mfbt/exported_headers.mk
++++ b/mfbt/exported_headers.mk
+@@ -10,6 +10,7 @@ EXPORTS_NAMESPACES += mozilla
+ 
+ EXPORTS_mozilla += \
+   Assertions.h \
++  AssertionsTor.h \
+   Atomics.h \
+   Attributes.h \
+   BloomFilter.h \
+@@ -19,6 +20,7 @@ EXPORTS_mozilla += \
+   Compiler.h \
+   Constants.h \
+   DebugOnly.h \
++  DebugOnlyTor.h \
+   decimal/Decimal.h \
+   Endian.h \
+   EnumSet.h \
+diff --git a/xpcom/base/nsAutoPtr.h b/xpcom/base/nsAutoPtr.h
+index e33eaeb..009ef8b 100644
+--- a/xpcom/base/nsAutoPtr.h
++++ b/xpcom/base/nsAutoPtr.h
+@@ -994,7 +994,7 @@ class nsRefPtr
+           // parameters where rhs bay be a T** or an I** where I is a base class
+           // of T.
+         {
+-          NS_ASSERTION(rhs, "Null pointer passed to forget!");
++          TBB_NS_ASSERTION(rhs, "Null pointer passed to forget!");
+           *rhs = mRawPtr;
+           mRawPtr = 0;
+         }
+diff --git a/xpcom/glue/nsDebugTor.h b/xpcom/glue/nsDebugTor.h
+index 343e84e..55b6fc6 100644
+--- a/xpcom/glue/nsDebugTor.h
++++ b/xpcom/glue/nsDebugTor.h
+@@ -15,7 +15,7 @@
+ #endif 
+ 
+ #include "nsXPCOM.h"
+-#include "mozilla/Assertions.h"
++#include "mozilla/AssertionsTor.h"
+ #include "mozilla/Likely.h"
+ 
+ #ifndef TOR_NASSERT
+@@ -349,7 +349,7 @@
+   #define TBB_NS_CheckThreadSafe(owningThread, msg)
+ #else
+   #define TBB_NS_CheckThreadSafe(owningThread, msg)                 \
+-    MOZ_ASSERT(owningThread == PR_GetCurrentThread(), msg)
++    TBB_MOZ_ASSERT(owningThread == PR_GetCurrentThread(), msg)
+ #endif
+ 
+ /* When compiling the XPCOM Glue on Windows, we pretend that it's going to

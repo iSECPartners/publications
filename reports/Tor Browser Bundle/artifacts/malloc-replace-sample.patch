@@ -1,0 +1,122 @@
+From da3f1399fcc9bbf8e0b66e9a3c649c58c0e46221 Mon Sep 17 00:00:00 2001
+From: Tom Ritter <tom@ritter.vg>
+Date: Wed, 21 May 2014 18:18:04 +0000
+Subject: [PATCH] Sample Malloc-Replacing Library
+
+---
+ .mozconfig                         |    1 +
+ memory/replace/moz.build           |    1 +
+ memory/replace/realloc/Makefile.in |   20 ++++++++++++++++++++
+ memory/replace/realloc/moz.build   |   13 +++++++++++++
+ memory/replace/realloc/realloc.c   |   32 ++++++++++++++++++++++++++++++++
+ 5 files changed, 67 insertions(+)
+ create mode 100644 memory/replace/realloc/Makefile.in
+ create mode 100644 memory/replace/realloc/moz.build
+ create mode 100644 memory/replace/realloc/realloc.c
+
+diff --git a/.mozconfig b/.mozconfig
+index e9a9432..b957ebe 100755
+--- a/.mozconfig
++++ b/.mozconfig
+@@ -6,6 +6,7 @@ mk_add_options MOZ_MAKE_FLAGS="-j4"
+ mk_add_options MOZILLA_OFFICIAL=1
+ mk_add_options BUILD_OFFICIAL=1
+ 
++ac_add_options --enable-replace-malloc
+ ac_add_options --enable-optimize
+ #ac_add_options --disable-optimize
+ ac_add_options --enable-official-branding
+diff --git a/memory/replace/moz.build b/memory/replace/moz.build
+index cb00e57..d378dce 100644
+--- a/memory/replace/moz.build
++++ b/memory/replace/moz.build
+@@ -7,3 +7,4 @@
+ # Build jemalloc3 as a replace-malloc lib when building with mozjemalloc
+ if not CONFIG['MOZ_JEMALLOC']:
+     DIRS += ['jemalloc']
++DIRS += ['realloc']
+diff --git a/memory/replace/realloc/Makefile.in b/memory/replace/realloc/Makefile.in
+new file mode 100644
+index 0000000..0893297
+--- /dev/null
++++ b/memory/replace/realloc/Makefile.in
+@@ -0,0 +1,20 @@
++# This Source Code Form is subject to the terms of the Mozilla Public
++# License, v. 2.0. If a copy of the MPL was not distributed with this
++# file, You can obtain one at http://mozilla.org/MPL/2.0/.
++
++DEPTH           = @DEPTH@
++topsrcdir       = @top_srcdir@
++srcdir          = @srcdir@
++VPATH           = @srcdir@
++
++include $(DEPTH)/config/autoconf.mk
++
++FORCE_SHARED_LIB = 1
++NO_DIST_INSTALL = 1
++
++VPATH += $(topsrcdir)/memory/build
++
++MOZ_GLUE_LDFLAGS = # Don't link against mozglue
++WRAP_LDFLAGS = # Never wrap malloc function calls with -Wl,--wrap
++
++include $(topsrcdir)/config/rules.mk
+diff --git a/memory/replace/realloc/moz.build b/memory/replace/realloc/moz.build
+new file mode 100644
+index 0000000..7f48c22
+--- /dev/null
++++ b/memory/replace/realloc/moz.build
+@@ -0,0 +1,13 @@
++# -*- Mode: python; c-basic-offset: 4; indent-tabs-mode: nil; tab-width: 40 -*-
++# vim: set filetype=python:
++# This Source Code Form is subject to the terms of the Mozilla Public
++# License, v. 2.0. If a copy of the MPL was not distributed with this
++# file, You can obtain one at http://mozilla.org/MPL/2.0/.
++
++MODULE = 'memory'
++
++LIBRARY_NAME = 'replace_realloc'
++
++CSRCS += [
++    'realloc.c',
++    ]
+diff --git a/memory/replace/realloc/realloc.c b/memory/replace/realloc/realloc.c
+new file mode 100644
+index 0000000..fd4e2b5
+--- /dev/null
++++ b/memory/replace/realloc/realloc.c
+@@ -0,0 +1,32 @@
++// This header will declare all the replacement functions, such that you don't need
++// to worry about exporting them with the right idiom (dllexport, visibility...)
++#include "replace_malloc.h"
++#include <stdlib.h>
++#include <stdio.h>
++
++static const malloc_table_t *funcs = NULL;
++static unsigned int total = 0, copies = 0;
++
++void replace_jemalloc_stats(jemalloc_stats_t *stats)
++{
++  printf("%d reallocs, %d copies\n", total, copies);
++  funcs->jemalloc_stats(stats);
++}
++
++void
++replace_init(const malloc_table_t *table)
++{
++  funcs = table;
++  printf("In init!\n");
++}
++
++void *replace_realloc(void *ptr, size_t size)
++{
++  void *newptr = funcs->realloc(ptr, size);
++  // Not thread-safe, but it's only an example.
++  total++;
++  // We don't want to count deallocations as copies.
++  if (newptr && newptr != ptr)
++    copies++;
++  return newptr;
++}
+-- 
+1.7.9.5
